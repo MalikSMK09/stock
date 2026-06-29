@@ -38,7 +38,7 @@ include "configuration/config_chmod.php";
 $halaman = "add_sales"; // halaman
 $dataapa = "Invoice"; // data
 $tabeldatabase = "invoicejual"; // tabel database
-$chmod = $chmenu2; // Hak akses Menu
+$chmod = $chmenu6; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
 
@@ -275,7 +275,12 @@ document.onkeydown = function(e){
 
         $g(document).ready(function(){
 
-         $g('#tampil').load("add_sale_cart.php");
+        function reloadCart(){
+            var data = $g('#formmain').serialize();
+            $g('#tampil').load("add_sale_cart.php", data);
+        }
+
+        reloadCart();
           
             $("#addcart1").click(function(){
                 var data = $('#formmain').serialize();
@@ -286,7 +291,7 @@ document.onkeydown = function(e){
 
                     cache : false,
                     success : function(data){
-                        $('#tampil').load("add_sale_cart.php");
+                        reloadCart();
                    
                       $("#formmain")[0].reset();
 
