@@ -1,0 +1,4 @@
+Nama database sesuaikan dengan nama di "configuration/config_connect.php"
+
+Import file proplus.sql atau indotory.sql
+
