@@ -1,6 +1,6 @@
 <?php
 
-include "configuration/config_connect.php";
+include "configuration/config_ajax_auth.php";
 
 
 
@@ -19,8 +19,7 @@ $oldqty=$cek['jumlah'];
 
 
 $ceki=mysqli_fetch_assoc(mysqli_query($conn,"SELECT terjual,sisa FROM barang WHERE kode='$kode' "));
-$limit=$ceki['sisa']+$oldqty;
-$sold=$ceki['terjual']-$oldqty;
+$limit=$ceki['sisa'];
 
 if($qty>$limit){
     $qty=$limit;
@@ -32,10 +31,6 @@ $output['message']="Stok tersedia hanya ".$limit."";
     $output['status']="berhasil";
     $output['message']="";
 }
-$soldid=$sold+$qty;
-$sisa=$limit-$qty;
-$brg=mysqli_query($conn,"update barang set terjual='$soldid', sisa='$sisa' where kode='$kode'");
-
 
 $up="UPDATE invoicejual SET jumlah='$qty'WHERE no='$no'";
                         $s=mysqli_query($conn,$up);

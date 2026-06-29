@@ -177,6 +177,20 @@ $_SESSION['pajak'.$nota]=0;
                     echo "<script type='text/javascript'>  alert('Terjadi kesalahan: Nomor Nota yang sama sudah ada!');</script>";
               } else if ($bayar>0 && $bayar>=$total) {
 
+                $stock_ok = true;
+                $mt_check = mysqli_query($conn,"select * from transaksimasuk where nota='$nota'");
+                while($rw_check = mysqli_fetch_assoc($mt_check)){
+                    $bt_check = mysqli_fetch_assoc(mysqli_query($conn,"select sisa from barang where kode='".$rw_check['kode']."'"));
+                    if($rw_check['jumlah'] > $bt_check['sisa']){
+                        $stock_ok = false;
+                    }
+                }
+
+                if(!$stock_ok){
+                    echo "<script type='text/javascript'>  alert('Gagal, stok tidak mencukupi untuk transaksi ini');</script>";
+                    echo "<script type='text/javascript'>window.location = 'bayar.php';</script>";
+                } else {
+
 
                  mysqli_query($conn,"SET session sql_mode = ''");	$sql2 = "insert into bayar values( '$nota','$tglnota','$jam','$bayar','$total','$kembali','$databelitotal','$kasir','$perdis','$diskon','$perpajak','$pajak','','','$tipe','$ket')";
                if(mysqli_query($conn, $sql2)){
@@ -188,8 +202,10 @@ $_SESSION['pajak'.$nota]=0;
                     $kurang=$rw['jumlah'];
                     $kegiatan="Penjualan kasir";
                     $status="berhasil";
-                    $bt=mysqli_fetch_assoc(mysqli_query($conn,"select sisa from barang where kode='$kode'"));
-                    $sisaakhir=$bt['sisa'];
+                    $bt=mysqli_fetch_assoc(mysqli_query($conn,"select sisa, terjual from barang where kode='$kode'"));
+                    $sisaakhir=$bt['sisa']-$kurang;
+                    $terjualakhir=$bt['terjual']+$kurang;
+                    mysqli_query($conn,"UPDATE barang SET sisa='$sisaakhir', terjual='$terjualakhir' WHERE kode='$kode'");
 
              mysqli_query($conn,"SET session sql_mode = ''");	$sql4 = "INSERT INTO mutasi values ( '$kasir','$today','$jam','$kode','$sisaakhir','$kurang','$kegiatan','$nota','','$status')";
                $mutasi = mysqli_query($conn, $sql4);
@@ -207,6 +223,8 @@ $_SESSION['pajak'.$nota]=0;
                     echo "<script type='text/javascript'>  alert('Gagal,Terjadi kesalah query. Hubungi Admin');</script>";
                 echo "<script type='text/javascript'>window.location = 'bayar.php';</script>";
                     }
+
+                }
 
 
 

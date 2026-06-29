@@ -42,7 +42,9 @@ function angka($angka){
            <?php
            error_reporting(E_ALL ^ E_DEPRECATED);
 
-           $sql    = "select * from transaksimasuk where nota =".autoNumber()." order by no desc";
+           $nota = isset($_POST['nota']) ? mysqli_real_escape_string($conn, $_POST['nota']) : (isset($_GET['nota']) ? mysqli_real_escape_string($conn, $_GET['nota']) : autoNumber());
+
+           $sql    = "select * from transaksimasuk where nota ='$nota' order by no desc";
            $result = mysqli_query($conn, $sql);
            $rpp    = 15;
            $reload = "$halaman"."?pagination=true";

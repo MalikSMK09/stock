@@ -7,7 +7,7 @@ session_start();
 $halaman = "jual"; // halaman
 $dataapa = "Penjualan"; // data
 $tabeldatabase = "invoicejual"; // tabel database
-$chmod = $chmenu2; // Hak akses Men
+$chmod = $chmenu6; // Hak akses Men
 
  function autoNumber(){
   include "configuration/config_connect.php";
@@ -42,7 +42,9 @@ function angka($angka){
            <?php
            error_reporting(E_ALL ^ E_DEPRECATED);
 
-           $sql    = "select * from invoicejual where nota =".autoNumber()." order by no desc";
+           $nota = isset($_POST['nota']) ? mysqli_real_escape_string($conn, $_POST['nota']) : (isset($_GET['nota']) ? mysqli_real_escape_string($conn, $_GET['nota']) : autoNumber());
+
+           $sql    = "select * from invoicejual where nota ='$nota' order by no desc";
            $result = mysqli_query($conn, $sql);
            $rpp    = 15;
            $reload = "$halaman"."?pagination=true";

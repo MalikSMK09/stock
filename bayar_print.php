@@ -166,7 +166,7 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 <?php 
 
 
-if(isset($_GET['delete']) && $_GET['delete']=yes ){
+if(isset($_GET['delete']) && $_GET['delete']=='yes' ){
 $nota=$_GET['nota'];
 $sql1=mysqli_query($conn,"SELECT * FROM transaksimasuk WHERE nota='$nota'");
 while($fi=mysqli_fetch_assoc($sql1)){

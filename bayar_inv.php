@@ -200,6 +200,20 @@ $_SESSION['bnama'.$nota]=0;
               }
           else if(( $chmod >= 2 || $_SESSION['jabatan'] == 'admin')){
 
+                $stock_ok = true;
+                $mt_check = mysqli_query($conn,"select * from invoicejual where nota='$nota'");
+                while($rw_check = mysqli_fetch_assoc($mt_check)){
+                    $bt_check = mysqli_fetch_assoc(mysqli_query($conn,"select sisa from barang where kode='".$rw_check['kode']."'"));
+                    if($rw_check['jumlah'] > $bt_check['sisa']){
+                        $stock_ok = false;
+                    }
+                }
+
+                if(!$stock_ok){
+                    echo "<script type='text/javascript'>  alert('Gagal, stok tidak mencukupi untuk invoice ini');</script>";
+                    echo "<script type='text/javascript'>window.location = 'bayar_inv.php';</script>";
+                } else {
+
                mysqli_query($conn,"SET session sql_mode = ''");	$sql2 = "insert into sale values( '$nota','$nomor','$tglnota','$duedate','$sub','$perdis','$diskon','$ppn','$nomtax','$bnama','$biaya','$total','$databelitotal','$pelanggan','$kasir','','','','$keterangan','$status','','')";
                if(mysqli_query($conn, $sql2)){
 
@@ -211,8 +225,10 @@ $_SESSION['bnama'.$nota]=0;
                     $kurang=$rw['jumlah'];
                   
                     $status="berhasil";
-                    $bt=mysqli_fetch_assoc(mysqli_query($conn,"select sisa from barang where kode='$kode'"));
-                    $sisaakhir=$bt['sisa'];
+                    $bt=mysqli_fetch_assoc(mysqli_query($conn,"select sisa, terjual from barang where kode='$kode'"));
+                    $sisaakhir=$bt['sisa']-$kurang;
+                    $terjualakhir=$bt['terjual']+$kurang;
+                    mysqli_query($conn,"UPDATE barang SET sisa='$sisaakhir', terjual='$terjualakhir' WHERE kode='$kode'");
 
              mysqli_query($conn,"SET session sql_mode = ''");	$sql4 = "INSERT INTO mutasi values ( '$kasir','$today','$jam','$kode','$sisaakhir','$kurang','$kegiatan','$nota','','$status')";
                $mutasi = mysqli_query($conn, $sql4);
@@ -234,6 +250,8 @@ $_SESSION['bnama'.$nota]=0;
             echo "<script type='text/javascript'>  alert('Gagal, Data gagal disimpan!Terjadi kesalahan, hubungi admin');</script>";
 
            }
+
+                }
 
 
              

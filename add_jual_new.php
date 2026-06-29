@@ -280,7 +280,12 @@ document.onkeydown = function(e){
 
         $g(document).ready(function(){
 
-         $g('#tampil').load("add_jual_auto_cart.php");
+        function reloadCart(){
+            var data = $g('#formmain').serialize();
+            $g('#tampil').load("add_jual_auto_cart.php", data);
+        }
+
+        reloadCart();
           
             $("#addcart1").click(function(){
                 var data = $('#formmain').serialize();
@@ -291,7 +296,7 @@ document.onkeydown = function(e){
 
                     cache : false,
                     success : function(data){
-                        $('#tampil').load("add_jual_auto_cart.php");
+                        reloadCart();
                    
                       $("#formmain")[0].reset();
 
@@ -314,7 +319,7 @@ document.onkeydown = function(e){
 
                     cache : false,
                     success : function(data){
-                        $('#tampil').load("add_jual_auto_cart.php");
+                        reloadCart();
                       
                       $("#formmain")[0].reset();
                        $("#barcode").focus();//this here
