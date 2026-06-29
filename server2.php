@@ -1,10 +1,10 @@
 <?php 
 
-include "configuration/config_connect.php";
+include "configuration/config_ajax_auth.php";
 
 
 if(isset($_POST['search'])){
-    $search = $_POST['search'];
+    $search = mysqli_real_escape_string($conn, $_POST['search']);
 
     $query = "SELECT * FROM barang WHERE nama like'%".$search."%'";
     $result = mysqli_query($conn,$query);
@@ -17,5 +17,4 @@ if(isset($_POST['search'])){
 }
 
 exit;
-
 
