@@ -1,16 +1,20 @@
-
 <?php
- include "configuration/config_connect.php";
+include "configuration/config_connect.php";
+require_once "libs/SecurityBootstrap.php";
 
-   $no = mysqli_real_escape_string($conn, $_POST["no"]);
-    $per = mysqli_real_escape_string($conn, $_POST["perdis"]);
-     $dis = mysqli_real_escape_string($conn, $_POST["diskon"]);
-   
+SecurityBootstrap::requireAuth();
 
-   $co=mysqli_query($conn,"update transaksimasuk set harga='$dis', diskon_persen='$per', diskon_harga='$dis' where no='$no'");
+$no = SecurityBootstrap::paramInt($_POST["no"] ?? 0);
+$per = SecurityBootstrap::paramFloat($_POST["perdis"] ?? 0);
+$dis = SecurityBootstrap::paramFloat($_POST["diskon"] ?? 0);
 
+SecurityBootstrap::execute(
+    $conn,
+    'UPDATE transaksimasuk SET harga = ?, diskon_persen = ?, diskon_harga = ? WHERE no = ?',
+    'dddi',
+    [$dis, $per, $dis, $no]
+);
 
-
- $output['status']="berhasil";
-                    $output['message']="gagal";
-   echo json_encode($output);
+$output = ['status' => 'berhasil', 'message' => 'berhasil'];
+header('Content-Type: application/json; charset=utf-8');
+echo json_encode($output);

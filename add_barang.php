@@ -42,7 +42,7 @@ $chmod = $chmenu4; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
 error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
-$id = $_GET['q'];
+$id = SecurityBootstrap::paramInt($_GET['q'] ?? 0);
 
 ?>
 
@@ -111,10 +111,8 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 
  <?php
 
-if( isset($id) && $id!='' ){
-
-  $w=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM barang WHERE no='$id'"));
-
+if (isset($id) && $id != '') {
+  $w = SecurityBootstrap::queryOne($conn, 'SELECT * FROM barang WHERE no = ? LIMIT 1', 'i', [$id]) ?: [];
 }
 
        ?>

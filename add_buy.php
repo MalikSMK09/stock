@@ -145,8 +145,8 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
     error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
 
     $kode=$nama=$hargabeli=$jumlah=$hargaakhir=$tglnota=$bayar=$kembalian="";
-    $no = $_GET["no"];
-    $kode = $_POST['kode'];
+    $no = SecurityBootstrap::paramInt($_GET["no"] ?? 0);
+    $kode = SecurityBootstrap::paramStr($_POST['kode'] ?? '', 64);
     $hargaakhir = $_POST['hargaakhir'];
     $tglnota = $_POST['tglnota'];
     $datatotal = $_POST['datatotal'];
@@ -156,11 +156,8 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 
     if(($no != null || $no != "") && ($chmod >= 3 || $_SESSION['jabatan'] == 'admin')){
 
-         $sql="select * from $tabeldatabase where kode='$kode'";
-                  $hasil2 = mysqli_query($conn,$sql);
-
-
-                  while ($fill = mysqli_fetch_assoc($hasil2)){
+         $editRows = SecurityBootstrap::queryAll($conn, "SELECT * FROM `$tabeldatabase` WHERE kode = ?", 's', [$kode]);
+                  foreach ($editRows as $fill) {
 
 
           $kode = $fill["kode"];

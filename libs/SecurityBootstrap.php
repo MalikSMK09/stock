@@ -296,6 +296,153 @@ class SecurityBootstrap
         return hash('sha256', md5($password));
     }
 
+    public static function allowedTables()
+    {
+        return [
+            'barang', 'supplier', 'pelanggan', 'kategori', 'brand', 'user', 'jabatan',
+            'buy', 'sale', 'invoicebeli', 'invoicejual', 'stok_masuk', 'stok_keluar',
+            'stok_masuk_daftar', 'stok_keluar_daftar', 'stok_sesuai_daftar',
+            'quotation', 'quotation_list', 'hutang', 'payment', 'mutasi',
+            'transaksimasuk', 'dataretur', 'retur', 'operasional', 'rekening',
+            'surat', 'bayar', 'pin', 'buy_hutang', 'buy_payment', 'sale_payment',
+        ];
+    }
+
+    public static function allowedExportTypes()
+    {
+        return ['bayar', 'barang', 'buy', 'revenue', 'income', 'operasional', 'sale', 'mutasi'];
+    }
+
+    public static function allowedDeletionTables()
+    {
+        return ['barang', 'supplier', 'pelanggan'];
+    }
+
+    public static function whitelistTable($name)
+    {
+        $name = strtolower(trim((string) $name));
+        if (!preg_match('/^[a-z][a-z0-9_]{0,63}$/', $name)) {
+            self::logEvent('invalid_table', ['table' => $name]);
+            self::deny(403, 'Nama tabel tidak valid.');
+        }
+        if (!in_array($name, self::allowedTables(), true)) {
+            self::logEvent('table_not_whitelisted', ['table' => $name]);
+            self::deny(403, 'Tabel tidak diizinkan.');
+        }
+        return $name;
+    }
+
+    public static function whitelistExport($name)
+    {
+        $name = strtolower(trim((string) $name));
+        if (!in_array($name, self::allowedExportTypes(), true)) {
+            self::logEvent('export_not_whitelisted', ['type' => $name]);
+            self::deny(403, 'Export tidak diizinkan.');
+        }
+        return $name;
+    }
+
+    public static function whitelistDeletionTable($name)
+    {
+        $name = strtolower(trim((string) $name));
+        if (!in_array($name, self::allowedDeletionTables(), true)) {
+            self::logEvent('deletion_table_denied', ['table' => $name]);
+            self::deny(403, 'Penghapusan tabel tidak diizinkan.');
+        }
+        return $name;
+    }
+
+    public static function whitelistPage($name)
+    {
+        $name = strtolower(trim((string) $name));
+        if (!preg_match('/^[a-z][a-z0-9_]{0,63}$/', $name)) {
+            self::logEvent('invalid_page', ['page' => $name]);
+            self::deny(403, 'Halaman tidak valid.');
+        }
+        return $name;
+    }
+
+    public static function execute($conn, $sql, $types = '', $params = [])
+    {
+        $stmt = self::query($conn, $sql, $types, $params);
+        if (!$stmt) {
+            return false;
+        }
+        $ok = mysqli_stmt_execute($stmt);
+        $affected = mysqli_stmt_affected_rows($stmt);
+        mysqli_stmt_close($stmt);
+        return $ok ? $affected : false;
+    }
+
+    public static function deleteWhere($conn, $table, $column, $value, $type = 's')
+    {
+        $table = self::whitelistTable($table);
+        if (!preg_match('/^[a-z][a-z0-9_]{0,63}$/', $column)) {
+            self::deny(403, 'Kolom tidak valid.');
+        }
+        return self::execute($conn, "DELETE FROM `{$table}` WHERE `{$column}` = ?", $type, [$value]);
+    }
+
+    public static function updateBarangByKode($conn, $kode, $fields)
+    {
+        $allowed = ['sisa', 'terbeli', 'terjual', 'retur'];
+        $sets = [];
+        $types = '';
+        $params = [];
+        foreach ($fields as $col => $val) {
+            if (!in_array($col, $allowed, true)) {
+                continue;
+            }
+            $sets[] = "`{$col}` = ?";
+            $types .= is_int($val) ? 'i' : 's';
+            $params[] = $val;
+        }
+        if (empty($sets)) {
+            return false;
+        }
+        $types .= 's';
+        $params[] = $kode;
+        $sql = 'UPDATE barang SET ' . implode(', ', $sets) . ' WHERE kode = ?';
+        return self::execute($conn, $sql, $types, $params);
+    }
+
+    public static function hasDeletePermission($chmod)
+    {
+        $chmod = (int) $chmod;
+        $jabatan = $_SESSION['jabatan'] ?? '';
+        return ($chmod >= 4 && $chmod <= 5)
+            || $jabatan === 'admin'
+            || $jabatan === 'guru';
+    }
+
+    public static function hasAdminDeletePermission($chmod)
+    {
+        $chmod = (int) $chmod;
+        return ($chmod >= 4 && $chmod <= 5) || ($_SESSION['jabatan'] ?? '') === 'admin';
+    }
+
+    public static function paramInt($value, $default = 0)
+    {
+        return filter_var($value, FILTER_VALIDATE_INT) !== false
+            ? (int) filter_var($value, FILTER_VALIDATE_INT)
+            : $default;
+    }
+
+    public static function paramFloat($value, $default = 0.0)
+    {
+        return is_numeric($value) ? (float) $value : $default;
+    }
+
+    public static function paramStr($value, $maxLength = 255)
+    {
+        return self::sanitizeString($value, $maxLength);
+    }
+
+    public static function safeRedirectPage($page)
+    {
+        return self::whitelistPage($page);
+    }
+
     public static function query($conn, $sql, $types = '', $params = [])
     {
         $stmt = mysqli_prepare($conn, $sql);

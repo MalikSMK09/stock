@@ -105,18 +105,18 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 
 
     $username=$password=$nama=$alamat=$nohp=$tgllahir=$tglaktif=$avatar=$jabatan=$insert=$no="";
-    $no = $_GET["no"];
+    $no = SecurityBootstrap::paramInt($_GET["no"] ?? 0);
     $insert = '1';
 
 
 
     if(($no != null || $no != "") && ($chmod >= 3 || $_SESSION['jabatan'] == 'admin')){
 
-         $sql="select * from $tabeldatabase where no='$no'";
-                  $hasil2 = mysqli_query($conn,$sql);
+         $editRows = SecurityBootstrap::queryAll($conn, "SELECT * FROM `$tabeldatabase` WHERE no = ?", 'i', [$no]);
+                  // secured query above
 
 
-                  while ($fill = mysqli_fetch_assoc($hasil2)){
+                  foreach ($editRows as $fill) {
 
 
                   $username = $fill["userna_me"];
@@ -180,7 +180,7 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
                       $tmp = $_FILES['avatar']['tmp_name'];
                       $avatar = "dist/upload/".$namaavatar;
                       $insert = ($_POST["insert"]);
-                      $no = ($_GET["no"]);
+                      $no = SecurityBootstrap::paramInt($_GET["no"] ?? 0);
 
 
 if (count($pesanError)>=1 ){

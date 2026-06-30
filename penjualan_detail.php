@@ -42,16 +42,16 @@ $chmod = $chmenu6; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
 error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
-$q=$_GET['q'];
+$q = SecurityBootstrap::paramStr($_GET['q'] ?? '', 64);
  
 ?>
 
 
 <!-- SETTING STOP -->
 <?php
-$a=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM sale WHERE nota='$q'"));
-$aa=$a['pelanggan'];
-$b=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM pelanggan WHERE kode='$aa'"));
+$a = SecurityBootstrap::queryOne($conn, 'SELECT pelanggan FROM sale WHERE nota = ? LIMIT 1', 's', [$q]) ?: [];
+$aa = $a['pelanggan'] ?? '';
+$b = SecurityBootstrap::queryOne($conn, 'SELECT * FROM pelanggan WHERE kode = ? LIMIT 1', 's', [$aa]) ?: [];
 
   ?>
 <!-- BREADCRUMB -->

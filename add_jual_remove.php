@@ -1,22 +1,27 @@
 <?php
-//Include file koneksi ke database
 include "configuration/config_connect.php";
- $id = mysqli_real_escape_string($conn, $_POST["id"]);
+require_once "libs/SecurityBootstrap.php";
 
-$cek=mysqli_fetch_assoc(mysqli_query($conn,"select * from transaksimasuk where no='$id'"));
-$kode=$cek['kode'];
-$qty=$cek['jumlah'];
+SecurityBootstrap::requireAuth();
 
-$brg=mysqli_fetch_assoc(mysqli_query($conn,"select sisa,terjual from barang where kode='$kode'"));
-$stok=$brg['sisa']+$qty;
-$terjual=$brg['terjual']-$qty;
+$id = SecurityBootstrap::paramInt($_POST["id"] ?? 0);
+if ($id <= 0) {
+    exit;
+}
 
-$up=mysqli_query($conn,"update barang set sisa='$stok',terjual='$terjual' where kode='$kode'");
+$cek = SecurityBootstrap::queryOne($conn, 'SELECT kode, jumlah FROM transaksimasuk WHERE no = ? LIMIT 1', 'i', [$id]);
+if (!$cek) {
+    exit;
+}
 
+$kode = $cek['kode'];
+$qty = (int) $cek['jumlah'];
 
-//Query hapus data dalam keranjang
-$sql="DELETE FROM transaksimasuk WHERE no='$id'";
+$brg = SecurityBootstrap::queryOne($conn, 'SELECT sisa, terjual FROM barang WHERE kode = ? LIMIT 1', 's', [$kode]);
+if ($brg) {
+    $stok = (int) $brg['sisa'] + $qty;
+    $terjual = (int) $brg['terjual'] - $qty;
+    SecurityBootstrap::updateBarangByKode($conn, $kode, ['sisa' => $stok, 'terjual' => $terjual]);
+}
 
-//Mengeksekusi/menjalankan query diatas
-$hasil=mysqli_query($conn,$sql);
-?>
+SecurityBootstrap::execute($conn, 'DELETE FROM transaksimasuk WHERE no = ?', 'i', [$id]);
