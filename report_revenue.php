@@ -102,8 +102,8 @@ $tabeldatabase = "bayar"; // tabel database
 $chmod = $chmenu9; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
-$bulan = $_POST['bulan'];
-$tahun = $_POST['tahun'];
+$bulan = SecurityBootstrap::sanitizeMonth($_POST['bulan'] ?? date('m'));
+$tahun = SecurityBootstrap::sanitizeYear($_POST['tahun'] ?? date('Y'));
 
 ?>
 
@@ -155,13 +155,10 @@ if ($chmod >= 1 || $_SESSION['jabatan'] == 'admin') {
 
 <?php
 if($tahun == null || $tahun == "" ){
-        $sqla="SELECT no, COUNT( * ) AS totaldata FROM $forward where nota IN (SELECT nota FROM transaksimasuk)";
+        $totaldata = SecurityBootstrap::reportRevenueCount($conn, '', '');
       }else{
-        $sqla="SELECT no, COUNT( * ) AS totaldata FROM $forward where nota IN (SELECT nota FROM transaksimasuk) and tglbayar LIKE '$tahun-$bulan-%'";
+        $totaldata = SecurityBootstrap::reportRevenueCount($conn, $tahun, $bulan);
       }
-    $hasila=mysqli_query($conn,$sqla);
-    $rowa=mysqli_fetch_assoc($hasila);
-    $totaldata=$rowa['totaldata'];
 
 ?>
 
@@ -217,10 +214,13 @@ if($tahun == null || $tahun == "" ){
 
   <div class="col-lg-6 col-md-6 col-sm-6">
   <?php
-$sqlb="SELECT SUM(total) AS total FROM $forward WHERE nota IN (SELECT nota FROM transaksimasuk) AND tglbayar LIKE '$tahun-$bulan-%'";
-$hasila=mysqli_query($conn,$sqlb);
-$rowa=mysqli_fetch_assoc($hasila);
-$totalrevenue=$rowa['total'];
+$revenueRow = SecurityBootstrap::queryOne(
+    $conn,
+    'SELECT SUM(total) AS total FROM bayar WHERE nota IN (SELECT nota FROM transaksimasuk) AND tglbayar LIKE ?',
+    's',
+    [$tahun . '-' . $bulan . '-%']
+);
+$totalrevenue = $revenueRow['total'] ?? 0;
 
 
 if($bulan == '1'){

@@ -42,13 +42,12 @@ $chmod = $chmenu6; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
 
-$nota = $_GET['q'];
+$nota = SecurityBootstrap::secureNota($_GET['q'] ?? '');
 
- 
-if(isset($_GET['refer'])){
-    $refer = $_GET['refer'];
+if (isset($_GET['refer'])) {
+    $refer = SecurityBootstrap::safeRedirectPage(SecurityBootstrap::paramStr($_GET['refer'], 64));
 } else {
-    $refer="add_jual";
+    $refer = "add_jual";
 }
 
 ?>
@@ -166,46 +165,38 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 <?php 
 
 
-if(isset($_GET['delete']) && $_GET['delete']=yes ){
-$nota=$_GET['nota'];
-$sql1=mysqli_query($conn,"SELECT * FROM transaksimasuk WHERE nota='$nota'");
-while($fi=mysqli_fetch_assoc($sql1)){
+if (isset($_GET['delete']) && $_GET['delete'] === 'yes' && ($chmod >= 4 || $_SESSION['jabatan'] == 'admin')) {
+    $notaDel = SecurityBootstrap::secureNota($_GET['nota'] ?? '');
+    $items = SecurityBootstrap::queryAll($conn, 'SELECT kode, jumlah FROM transaksimasuk WHERE nota = ?', 's', [$notaDel]);
 
-$jml=$fi['jumlah'];
-$kode=$fi['kode'];
-$cek=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM barang WHERE kode='$kode'"));
+    foreach ($items as $fi) {
+        $jml = (int) $fi['jumlah'];
+        $kode = $fi['kode'];
+        $cek = SecurityBootstrap::queryOne($conn, 'SELECT sisa, terjual FROM barang WHERE kode = ? LIMIT 1', 's', [$kode]);
+        if ($cek) {
+            $stokbaru = (int) $cek['sisa'] + $jml;
+            $terjual = (int) $cek['terjual'] - $jml;
+            SecurityBootstrap::updateBarangByKode($conn, $kode, ['sisa' => $stokbaru, 'terjual' => $terjual]);
 
-$stokbaru=$cek['sisa']+$jml;
-$terjual=$cek['terjual']-$jml;
+            $kasir = $_SESSION['nama'];
+            $today = date('Y-m-d');
+            $jam = date('H:i');
+            $kegiatan = 'Transaksi dihapus, Stok dikembalikan';
+            $status = 'berhasil';
+            SecurityBootstrap::execute(
+                $conn,
+                "INSERT INTO mutasi (namauser, tgl, jam, kodebarang, sisa, jumlah, kegiatan, keterangan, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                'sssssisss',
+                [$kasir, $today, $jam, $kode, $stokbaru, $jml, $kegiatan, $notaDel, '', $status]
+            );
+        }
+    }
 
-$lup=mysqli_query($conn,"UPDATE barang SET sisa='$stokbaru', terjual='$terjual' WHERE kode='$kode' ");
+    SecurityBootstrap::execute($conn, 'DELETE FROM transaksimasuk WHERE nota = ?', 's', [$notaDel]);
+    SecurityBootstrap::execute($conn, 'DELETE FROM bayar WHERE nota = ?', 's', [$notaDel]);
+    SecurityBootstrap::execute($conn, 'DELETE FROM dataretur WHERE nota = ?', 's', [$notaDel]);
 
-
-$kasir=$_SESSION['nama'];
-$today=date('Y-m-d');
-$jam=date('H:i');
-$kegiatan='Transaksi dihapus, Stok dikembalikan';
-$status="berhasil";
-
-
-
-mysqli_query($conn,"SET session sql_mode = ''");	$sql4 = "INSERT INTO mutasi values ( '$kasir','$today','$jam','$kode','$stokbaru','$jml','$kegiatan','$nota','','$status')";
-               $mutasi = mysqli_query($conn, $sql4);
-
-
-}
-
-
-
-
-$deli=mysqli_query($conn,"DELETE FROM transaksimasuk WHERE nota='$nota'");
-$del1=mysqli_query($conn,"DELETE FROM bayar WHERE nota='$nota'");
-$del2=mysqli_query($conn,"DELETE FROM dataretur WHERE nota='$nota'");
-
-
-
- echo "<script type='text/javascript'>window.location = 'retur?delete=sukses';</script>";
-
+    echo "<script type='text/javascript'>window.location = 'retur?delete=sukses';</script>";
 }
 
 

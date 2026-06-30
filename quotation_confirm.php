@@ -41,7 +41,7 @@ $tabeldatabase = "quotation"; // tabel database
 $chmod = $chmenu3; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
-$q = $_GET['q'];
+$q = SecurityBootstrap::secureNota($_GET['q'] ?? '');
 
 
  function autoNumber(){
@@ -66,33 +66,28 @@ $q = $_GET['q'];
 
   if(isset($_POST["cancel"])){
        if($_SERVER["REQUEST_METHOD"] == "POST"){
+        SecurityBootstrap::requireCsrf();
 
-        $nota = mysqli_real_escape_string($conn, $_POST["nota"]);
-        $quo = mysqli_real_escape_string($conn, $_POST["quo"]);
+        $nota = SecurityBootstrap::secureNota($_POST["nota"] ?? '');
+        $quo = SecurityBootstrap::secureNota($_POST["quo"] ?? '');
 
-        $sql=mysqli_query($conn,"SELECT * FROM invoicejual WHERE nota='$nota'");
-        while($row=mysqli_fetch_assoc($sql)){
-            $barang=$row['kode'];
-            $qty=$row['jumlah'];
+        $items = SecurityBootstrap::queryAll($conn, 'SELECT kode, jumlah FROM invoicejual WHERE nota = ?', 's', [$nota]);
+        foreach ($items as $row) {
+            $barang = $row['kode'];
+            $qty = (int) $row['jumlah'];
 
-             $sqle3="SELECT * FROM barang where kode='$barang'";
-              $hasile3=mysqli_query($conn,$sqle3);
-              $rowa=mysqli_fetch_assoc($hasile3);
-              $sisa=$rowa['sisa']+$qty;
-              $terjual=$rowa['terjual']-$qty;
-
-              $sql2=mysqli_query($conn,"UPDATE barang SET sisa='$sisa',terjual='$terjual' where kode='$barang'");
+            $rowa = SecurityBootstrap::queryOne($conn, 'SELECT sisa, terjual FROM barang WHERE kode = ? LIMIT 1', 's', [$barang]);
+            if ($rowa) {
+                $sisa = (int) $rowa['sisa'] + $qty;
+                $terjual = (int) $rowa['terjual'] - $qty;
+                SecurityBootstrap::updateBarangByKode($conn, $barang, ['sisa' => $sisa, 'terjual' => $terjual]);
+            }
         }
 
-        $sql2=mysqli_query($conn,"DELETE FROM invoicejual WHERE nota='$nota'");
+        SecurityBootstrap::execute($conn, 'DELETE FROM invoicejual WHERE nota = ?', 's', [$nota]);
 
-
-
-        $sql3="UPDATE quotation_list SET conv='0' WHERE nota='$quo'";
-
-        if(mysqli_query($conn,$sql3)){
-
-                $sql4=mysqli_query($conn,"DELETE FROM mutasi WHERE kegiatan='menjual barang hasil penawaran' AND keterangan='$quo'");
+        if (SecurityBootstrap::execute($conn, "UPDATE quotation_list SET conv = '0' WHERE nota = ?", 's', [$quo]) !== false) {
+                SecurityBootstrap::execute($conn, "DELETE FROM mutasi WHERE kegiatan = 'menjual barang hasil penawaran' AND keterangan = ?", 's', [$quo]);
 
                echo "<script type='text/javascript'>  alert('BERHASIL, konversi sebelumnya dibatalkan dan stok telah dikembalikan ke gudang!'); </script>";
                   echo "<script type='text/javascript'>window.location = 'quotation';</script>";

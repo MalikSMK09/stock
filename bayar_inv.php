@@ -73,26 +73,12 @@ $defppn=$pp['pajakppn'];
 
     if($nota == null || $nota == ""){
 
-            $sqle="SELECT SUM(harga*jumlah) as data FROM invoicejual WHERE nota='$nota' ";
-            $hasile=mysqli_query($conn,$sqle);
-            $row=mysqli_fetch_assoc($hasile);
-            $datatotal=$row['data'];
-
-            $sqle="SELECT SUM(hargabeli*jumlah) as data FROM invoicejual WHERE nota='$nota'";
-            $hasile=mysqli_query($conn,$sqle);
-            $row=mysqli_fetch_assoc($hasile);
-            $databelitotal=$row['data'];
+            $datatotal = SecurityBootstrap::sumCartByNota($conn, 'invoicejual', $nota, 'harga*jumlah');
+            $databelitotal = SecurityBootstrap::sumCartByNota($conn, 'invoicejual', $nota, 'hargabeli*jumlah');
     }else{
 
-      $sqle="SELECT SUM(harga*jumlah) as data FROM invoicejual WHERE nota='$nota'";
-      $hasile=mysqli_query($conn,$sqle);
-      $row=mysqli_fetch_assoc($hasile);
-      $datatotal=$row['data'];
-
-      $sqle="SELECT SUM(hargabeli*jumlah) as data FROM invoicejual WHERE nota='$nota'";
-      $hasile=mysqli_query($conn,$sqle);
-      $row=mysqli_fetch_assoc($hasile);
-      $databelitotal=$row['data'];
+      $datatotal = SecurityBootstrap::sumCartByNota($conn, 'invoicejual', $nota, 'harga*jumlah');
+      $databelitotal = SecurityBootstrap::sumCartByNota($conn, 'invoicejual', $nota, 'hargabeli*jumlah');
 
 
     }

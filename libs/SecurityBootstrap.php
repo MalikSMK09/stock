@@ -443,6 +443,133 @@ class SecurityBootstrap
         return self::whitelistPage($page);
     }
 
+    public static function secureNota($value, $maxLength = 64)
+    {
+        return self::paramStr($value, $maxLength);
+    }
+
+    public static function secureSearch($value, $maxLength = 100)
+    {
+        return self::paramStr($value, $maxLength);
+    }
+
+    public static function sanitizeDate($value, $allowEmpty = false)
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return $allowEmpty ? '' : self::deny(400, 'Tanggal wajib diisi.');
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            self::deny(400, 'Format tanggal tidak valid.');
+        }
+        return $value;
+    }
+
+    public static function sanitizeYear($value)
+    {
+        $year = self::paramInt($value, 0);
+        if ($year < 2000 || $year > 2100) {
+            return (int) date('Y');
+        }
+        return $year;
+    }
+
+    public static function sanitizeMonth($value)
+    {
+        $month = self::paramInt($value, 0);
+        if ($month < 1 || $month > 12) {
+            return date('m');
+        }
+        return str_pad((string) $month, 2, '0', STR_PAD_LEFT);
+    }
+
+    public static function supplierFilter($value)
+    {
+        $value = trim((string) $value);
+        if ($value === 'all') {
+            return 'all';
+        }
+        return self::paramStr($value, 64);
+    }
+
+    public static function countByNota($conn, $table, $nota)
+    {
+        $table = self::whitelistTable($table);
+        $row = self::queryOne($conn, "SELECT COUNT(nota) AS data FROM `{$table}` WHERE nota = ?", 's', [$nota]);
+        return (int) ($row['data'] ?? 0);
+    }
+
+    public static function sumJumlahByNota($conn, $table, $nota, $alias = 'tot')
+    {
+        $table = self::whitelistTable($table);
+        $row = self::queryOne($conn, "SELECT SUM(jumlah) AS {$alias} FROM `{$table}` WHERE nota = ?", 's', [$nota]);
+        return $row[$alias] ?? 0;
+    }
+
+    public static function reportSearchCount($conn, $table, $search, array $columns)
+    {
+        $table = self::whitelistTable($table);
+        if ($search === '') {
+            $row = self::queryOne($conn, "SELECT COUNT(*) AS totaldata FROM `{$table}`");
+            return (int) ($row['totaldata'] ?? 0);
+        }
+
+        $like = '%' . self::escapeLike($search) . '%';
+        $clauses = [];
+        $types = '';
+        $params = [];
+        foreach ($columns as $column) {
+            if (!preg_match('/^[a-z][a-z0-9_]{0,63}$/', $column)) {
+                continue;
+            }
+            $clauses[] = "`{$column}` LIKE ? ESCAPE '\\\\'";
+            $types .= 's';
+            $params[] = $like;
+        }
+        if (empty($clauses)) {
+            return 0;
+        }
+        $sql = 'SELECT COUNT(*) AS totaldata FROM `' . $table . '` WHERE ' . implode(' OR ', $clauses);
+        $row = self::queryOne($conn, $sql, $types, $params);
+        return (int) ($row['totaldata'] ?? 0);
+    }
+
+    public static function reportRevenueCount($conn, $year, $month)
+    {
+        if ($year === '' || $year === null) {
+            $row = self::queryOne(
+                $conn,
+                'SELECT COUNT(*) AS totaldata FROM bayar WHERE nota IN (SELECT nota FROM transaksimasuk)'
+            );
+        } else {
+            $dateLike = $year . '-' . $month . '-%';
+            $row = self::queryOne(
+                $conn,
+                'SELECT COUNT(*) AS totaldata FROM bayar WHERE nota IN (SELECT nota FROM transaksimasuk) AND tglbayar LIKE ?',
+                's',
+                [$dateLike]
+            );
+        }
+        return (int) ($row['totaldata'] ?? 0);
+    }
+
+    public static function sumCartByNota($conn, $table, $nota, $expression = 'total')
+    {
+        $table = self::whitelistTable($table);
+        $allowed = [
+            'harga*jumlah' => 'SELECT SUM(harga * jumlah) AS data FROM',
+            'hargabeli*jumlah' => 'SELECT SUM(hargabeli * jumlah) AS data FROM',
+            'hargaakhir' => 'SELECT SUM(hargaakhir) AS data FROM',
+            'modal' => 'SELECT SUM(modal) AS data FROM',
+            'total' => 'SELECT SUM(total) AS data FROM',
+        ];
+        if (!isset($allowed[$expression])) {
+            return 0;
+        }
+        $row = self::queryOne($conn, $allowed[$expression] . " `{$table}` WHERE nota = ?", 's', [$nota]);
+        return $row['data'] ?? 0;
+    }
+
     public static function query($conn, $sql, $types = '', $params = [])
     {
         $stmt = mysqli_prepare($conn, $sql);

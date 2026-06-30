@@ -96,7 +96,7 @@ $tabeldatabase = "bayar"; // tabel database
 $chmod = $chmenu9; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
-$search = $_POST['search'];
+$search = SecurityBootstrap::secureSearch($_POST['search'] ?? '');
 
 ?>
 
@@ -148,13 +148,12 @@ if ($chmod >= 1 || $_SESSION['jabatan'] == 'admin') {
 
 <?php
 if($search == null || $search == "" ){
-        $sqla="SELECT no, COUNT( * ) AS totaldata FROM $forward";
+        $rowa = SecurityBootstrap::queryOne($conn, "SELECT COUNT(*) AS totaldata FROM `$forward`");
       }else{
-        $sqla="SELECT no, COUNT( * ) AS totaldata FROM $forward where nota like '%$search%' or tglbayar like '%$search%' or kasir like '%$search%'";
+        $totaldata = SecurityBootstrap::reportSearchCount($conn, $forward, $search, ['nota', 'tglbayar', 'kasir']);
+        $rowa = ['totaldata' => $totaldata];
       }
-    $hasila=mysqli_query($conn,$sqla);
-    $rowa=mysqli_fetch_assoc($hasila);
-    $totaldata=$rowa['totaldata'];
+    $totaldata = $rowa['totaldata'] ?? 0;
 
 ?>
 
@@ -217,7 +216,7 @@ if($search == null || $search == "" ){
                                         </thead>
                                           <?php
     error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
-    $search = $_POST['search'];
+    $search = SecurityBootstrap::secureSearch($_POST['search'] ?? '');
 
     if ($search != null || $search != "") {
 
@@ -236,15 +235,15 @@ if($search == null || $search == "" ){
   <td><?php  echo mysqli_real_escape_string($conn, $fill['tglbayar']); ?></td>
   <?php
 $nota = $fill['nota'];
-$sqle="SELECT COUNT( nota ) AS data FROM transaksimasuk WHERE nota ='$nota'";
-$hasile=mysqli_query($conn,$sqle);
-$rowa=mysqli_fetch_assoc($hasile);
-$jumlahbayar=$rowa['data'];
+$rowa = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(nota) AS data FROM transaksimasuk WHERE nota = ?', 's', [$nota]);
+// secured
+// secured
+$jumlahbayar = $rowa['data'] ?? 0;
 
-$jml= " SELECT SUM(jumlah) tot_jual FROM transaksimasuk WHERE nota ='$nota'"  ;
-$hasil1=mysqli_query($conn,$jml);
-$row1=mysqli_fetch_array($hasil1);
-$jmljual=$row1['tot_jual'];
+$row1 = SecurityBootstrap::queryOne($conn, 'SELECT SUM(jumlah) AS tot_jual FROM transaksimasuk WHERE nota = ?', 's', [$nota]);
+// secured
+// secured
+$jmljual = $row1['tot_jual'] ?? 0;
    ?>
    <td><?php  echo mysqli_real_escape_string($conn, $jmljual); ?></td>
   <td><?php  echo mysqli_real_escape_string($conn, $jumlahbayar); ?></td>
@@ -281,15 +280,15 @@ $jmljual=$row1['tot_jual'];
   <td><?php  echo mysqli_real_escape_string($conn, $fill['tglbayar']); ?></td>
   <?php
 $nota = $fill['nota'];
-$sqle="SELECT COUNT( nota ) AS data FROM transaksimasuk WHERE nota ='$nota'";
-$hasile=mysqli_query($conn,$sqle);
-$rowa=mysqli_fetch_assoc($hasile);
-$jumlahbayar=$rowa['data'];
+$rowa = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(nota) AS data FROM transaksimasuk WHERE nota = ?', 's', [$nota]);
+// secured
+// secured
+$jumlahbayar = $rowa['data'] ?? 0;
 
-$jml= " SELECT SUM(jumlah) tot_jual FROM transaksimasuk WHERE nota ='$nota'"  ;
-$hasil1=mysqli_query($conn,$jml);
-$row1=mysqli_fetch_array($hasil1);
-$jmljual=$row1['tot_jual'];
+$row1 = SecurityBootstrap::queryOne($conn, 'SELECT SUM(jumlah) AS tot_jual FROM transaksimasuk WHERE nota = ?', 's', [$nota]);
+// secured
+// secured
+$jmljual = $row1['tot_jual'] ?? 0;
    ?>
    
   <td><?php  echo mysqli_real_escape_string($conn, $jmljual); ?></td>

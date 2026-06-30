@@ -94,7 +94,7 @@ if ($search != null || $search != "") {
 //fungsi menangkap barcode
 
 if(isset($_GET['barcode'])) {
-   $barcode = mysqli_real_escape_string($conn, $_GET["barcode"]);
+   $barcode = SecurityBootstrap::paramStr($_GET["barcode"], 100);
     $sql1= "SELECT * FROM barang where barcode='$barcode'";
     $query=mysqli_query($conn, $sql1);
     $data=mysqli_fetch_assoc($query);

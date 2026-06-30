@@ -96,7 +96,7 @@ $tabeldatabase = "beli"; // tabel database
 $chmod = $chmenu9; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
-$search = $_POST['search'];
+$search = SecurityBootstrap::secureSearch($_POST['search'] ?? '');
 
 ?>
 
@@ -216,7 +216,7 @@ if($search == null || $search == "" ){
                                         </thead>
                                           <?php
     error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
-    $search = $_POST['search'];
+    $search = SecurityBootstrap::secureSearch($_POST['search'] ?? '');
 
     if ($search != null || $search != "") {
 
@@ -235,15 +235,11 @@ if($search == null || $search == "" ){
   <td><?php  echo mysqli_real_escape_string($conn, $fill['tglbeli']); ?></td>
   <?php
 $nota = $fill['nota'];
-$sqle="SELECT COUNT( nota ) AS data FROM transaksibeli WHERE nota ='$nota'";
-$hasile=mysqli_query($conn,$sqle);
-$rowa=mysqli_fetch_assoc($hasile);
-$jumlahbeli=$rowa['data'];
+$rowa = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(nota) AS data FROM transaksibeli WHERE nota = ?', 's', [$nota]);
+$jumlahbeli = $rowa['data'] ?? 0;
 
-$jml= " SELECT SUM(jumlah) tot_beli FROM transaksibeli WHERE nota ='$nota'"  ;
-$hasil1=mysqli_query($conn,$jml);
-$row1=mysqli_fetch_array($hasil1);
-$jmlbeli=$row1['tot_beli'];
+$row1 = SecurityBootstrap::queryOne($conn, 'SELECT SUM(jumlah) AS tot_beli FROM transaksibeli WHERE nota = ?', 's', [$nota]);
+$jmlbeli = $row1['tot_beli'] ?? 0;
 
    ?>
   <td><?php  echo mysqli_real_escape_string($conn, $jmlbeli); ?></td>
@@ -279,15 +275,11 @@ $jmlbeli=$row1['tot_beli'];
   <td><?php  echo mysqli_real_escape_string($conn, $fill['tglbeli']); ?></td>
   <?php
 $nota = $fill['nota'];
-$sqle="SELECT COUNT( nota ) AS data FROM transaksibeli WHERE nota ='$nota'";
-$hasile=mysqli_query($conn,$sqle);
-$rowa=mysqli_fetch_assoc($hasile);
-$jumlahbeli=$rowa['data'];
+$rowa = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(nota) AS data FROM transaksibeli WHERE nota = ?', 's', [$nota]);
+$jumlahbeli = $rowa['data'] ?? 0;
 
-$jml= " SELECT SUM(jumlah) tot_beli FROM transaksibeli WHERE nota ='$nota'"  ;
-$hasil1=mysqli_query($conn,$jml);
-$row1=mysqli_fetch_array($hasil1);
-$jmlbeli=$row1['tot_beli'];
+$row1 = SecurityBootstrap::queryOne($conn, 'SELECT SUM(jumlah) AS tot_beli FROM transaksibeli WHERE nota = ?', 's', [$nota]);
+$jmlbeli = $row1['tot_beli'] ?? 0;
    ?>
   <td><?php  echo mysqli_real_escape_string($conn, $jmlbeli); ?></td>
   <td><?php  echo mysqli_real_escape_string($conn, $fill['total']); ?></td>
