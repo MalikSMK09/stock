@@ -1,4 +1,59 @@
 RewriteEngine On
+
+# ---------------------------------------------------------------------------
+# Security hardening
+# ---------------------------------------------------------------------------
+
+# Block dangerous/scanner user agents (sqlmap, nikto, etc.)
+RewriteCond %{HTTP_USER_AGENT} (sqlmap|nikto|nmap|masscan|acunetix|nessus|openvas|w3af|havij|pangolin|dirbuster|gobuster|wpscan|burpsuite|zaproxy|hydra|metasploit) [NC]
+RewriteRule .* - [F,L]
+
+# Block direct access to sensitive files and directories
+RewriteRule ^configuration/ - [F,L]
+RewriteRule ^tmp/security/ - [F,L]
+RewriteRule ^(info|delete|i)\.php$ - [F,L]
+RewriteRule ^configuration/\.env$ - [F,L]
+
+# Security headers (when mod_headers is available)
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    Header always unset X-Powered-By
+    Header always unset Server
+</IfModule>
+
+# Limit HTTP methods
+<LimitExcept GET POST HEAD>
+    Require all denied
+</LimitExcept>
+
+# Disable directory listing
+Options -Indexes
+
+# Protect hidden files
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Block access to backup/archive files
+<FilesMatch "\.(sql|bak|log|env|ini|zip|tar|gz)$">
+    Require all denied
+</FilesMatch>
+
+# Request body size limit (anti-flood)
+LimitRequestBody 10485760
+
+# Slowloris / timeout protection
+<IfModule mod_reqtimeout.c>
+    RequestReadTimeout header=20-40,MinRate=500 body=20,MinRate=500
+</IfModule>
+
+# ---------------------------------------------------------------------------
+# Pretty URL routing (existing behavior)
+# ---------------------------------------------------------------------------
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME}.php -f [NC]
@@ -6,4 +61,4 @@ RewriteRule ^(.*)$ $1.php [L,QSA]
 RewriteCond %{REQUEST_FILENAME}.htm -f [NC]
 RewriteRule ^(.*)$ $1.htm [L,QSA]
 RewriteCond %{REQUEST_FILENAME}.html -f [NC]
-RewriteRule ^(.*)$ $1.html [L,QSA] 
+RewriteRule ^(.*)$ $1.html [L,QSA]

@@ -1,67 +1,63 @@
 <?php
 error_reporting(0);
 session_start();
-include "configuration/config_etc.php" ;
-include "configuration/config_include.php" ;
+include "configuration/config_etc.php";
+include "configuration/config_include.php";
 include 'configuration/config_connect.php';
-connect(); timing();
-?>
+connect();
+timing();
 
-<?php
+$queryback = "SELECT url FROM backset";
+$resultback = mysqli_query($conn, $queryback);
+$rowback = mysqli_fetch_assoc($resultback);
+$url = $rowback['url'];
 
+$username = $password = "";
 
-$queryback="SELECT url FROM backset";
-    $resultback=mysqli_query($conn,$queryback);
-    $rowback=mysqli_fetch_assoc($resultback);
-    $url=$rowback['url'];
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    SecurityBootstrap::requireCsrf();
 
+    $username = SecurityBootstrap::sanitizeString($_POST['txtuser'] ?? '', 64);
+    $password = $_POST['txtpass'] ?? '';
+    $attemptFile = SecurityBootstrap::checkLoginAttempt($username);
 
-$username=$password="";
+    if ($username === '' || $password === '') {
+        SecurityBootstrap::recordLoginFailure($attemptFile);
+        header("Location: loginagain");
+        exit;
+    }
 
+    $hashedPassword = SecurityBootstrap::hashPassword($password);
 
-$tabeldatabase = "user"; // tabel database
-$forward = mysqli_real_escape_string($conn, $tabeldatabase);
+    $user = SecurityBootstrap::queryOne(
+        $conn,
+        "SELECT * FROM user WHERE userna_me = ? AND pa_ssword = ? LIMIT 1",
+        'ss',
+        [$username, $hashedPassword]
+    );
 
-if($_SERVER["REQUEST_METHOD"]=="POST"){
-  $username= mysqli_real_escape_string($conn, $_POST['txtuser']);
-  $password= mysqli_real_escape_string($conn, $_POST['txtpass']);
-  $password=md5($password);
-  $password=sha1($password);
+    if ($user) {
+        SecurityBootstrap::clearLoginAttempts($attemptFile);
+        session_regenerate_id(true);
 
-  $sql="select * from $forward where userna_me='$username' and pa_ssword='$password'";
-  $hasil= mysqli_query($conn,$sql);
-  if(($url =='http://idwares.esy.es')&&(mysqli_num_rows($hasil)>0)){
-    $data=mysqli_fetch_assoc($hasil);
-    $_SESSION['username']=$data['userna_me'];
-    $_SESSION['nama']=$data['nama'];
-    $_SESSION['jabatan']=$data['jabatan'];
-    $_SESSION['avatar']=$data['avatar'];
-    $_SESSION['nouser']=$data['no'];
-    $_SESSION['baseurl']=$baseurl;
-    login_validate();
-    header("Location: index?alert=1");
+        $_SESSION['username'] = $user['userna_me'];
+        $_SESSION['nama'] = $user['nama'];
+        $_SESSION['jabatan'] = $user['jabatan'];
+        $_SESSION['avatar'] = $user['avatar'];
+        $_SESSION['nouser'] = $user['no'];
+        $_SESSION['baseurl'] = $baseurl;
+        login_validate();
 
-   } else if (mysqli_num_rows($hasil)>0){
-  $data=mysqli_fetch_assoc($hasil);
-    $_SESSION['username']=$data['userna_me'];
-    $_SESSION['nama']=$data['nama'];
-    $_SESSION['jabatan']=$data['jabatan'];
-    $_SESSION['avatar']=$data['avatar'];
-    $_SESSION['nouser']=$data['no'];
-    $_SESSION['baseurl']=$baseurl;
-    login_validate();
-    header("Location: index");
+        if (($url == 'http://idwares.esy.es')) {
+            header("Location: index?alert=1");
+        } else {
+            header("Location: index");
+        }
+        exit;
+    }
 
-  }
-  else {
+    SecurityBootstrap::recordLoginFailure($attemptFile);
+    SecurityBootstrap::logEvent('login_failed', ['username' => $username]);
     header("Location: loginagain");
-  
-  }
-
-
+    exit;
 }
-
-
-
-
-?>

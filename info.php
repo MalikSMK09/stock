@@ -1,4 +1,3 @@
 <?php
-// Show all information, defaults to INFO_ALL
-phpinfo();
-?>
+http_response_code(403);
+exit('Akses ditolak.');

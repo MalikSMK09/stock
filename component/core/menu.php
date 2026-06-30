@@ -312,6 +312,9 @@ if($chmenu10 >= 1 || $_SESSION['jabatan'] == 'admin'){ ?>
                                 <li>
                                     <a href="set_general"><i class="fa fa-circle-o"></i>General Setting</a>
                                 </li>
+                                <li>
+                                    <a href="security_monitor"><i class="fa fa-shield"></i>Security Monitor</a>
+                                </li>
                                    <li>
                                 <a href="payment_options"><i class="fa fa-circle-o"></i>Metode Bayar</a>
                                                        
