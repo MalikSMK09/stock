@@ -139,70 +139,45 @@ $_SESSION['bnama'.$nota]=0;
 
     if(isset($_POST["simpan"])){
        if($_SERVER["REQUEST_METHOD"] == "POST"){
-           
-            $cust = mysqli_real_escape_string($conn, $_POST["pelanggan"]);
+           SecurityBootstrap::requireCsrf();
+
+            $pelanggan = SecurityBootstrap::paramStr($_POST["pelanggan"] ?? '', 64);
             
-            if($cust == ''){ 
+            if($pelanggan == ''){ 
                  echo "<script type='text/javascript'>  alert('Gagal, Pelanggan belum dipilih! Pilih pelanggan atau tambah dari menu pelanggan'); </script>";
-              
-                
             } else { 
 
-              $pelanggan = mysqli_real_escape_string($conn, $_POST["pelanggan"]);
-               $nota = mysqli_real_escape_string($conn, $_POST["nota"]);
-                  $nomor = mysqli_real_escape_string($conn, $_POST["nomor"]);
-              $duedate = mysqli_real_escape_string($conn, $_POST["duedate"]);
-               $sub = mysqli_real_escape_string($conn, $_POST["subtotal"]);
-              $total = mysqli_real_escape_string($conn, $_POST["total"]);
-              $tglnota = mysqli_real_escape_string($conn, $_POST["tglnota"]);
-
-               $databelitotal = mysqli_real_escape_string($conn, $_POST["beli"]);
-             
-
-                $diskon = $_SESSION['nomdis'.$nota];
-                $perdis = $_SESSION['perdis'.$nota];
-                $ppn = $_SESSION['pajak'.$nota];
-                $bnama = $_SESSION['bnama'.$nota];
-                $biaya = $_SESSION['biaya'.$nota];
-                 $nomtax = mysqli_real_escape_string($conn, $_POST["nomtax"]);
-
-              
-              
-              $keterangan = mysqli_real_escape_string($conn, $_POST["keterangan"]);
-              $kasir = $_SESSION["username"];
-              $berhasil = "berhasil";
+              $notaPost = SecurityBootstrap::secureNota($_POST["nota"] ?? '');
+              $nomor = SecurityBootstrap::paramStr($_POST["nomor"] ?? '', 64);
+              $duedate = SecurityBootstrap::optionalDate($_POST["duedate"] ?? '');
+              $sub = SecurityBootstrap::paramFloat($_POST["subtotal"] ?? 0);
+              $total = SecurityBootstrap::paramFloat($_POST["total"] ?? 0);
+              $tglnota = SecurityBootstrap::optionalDate($_POST["tglnota"] ?? date('Y-m-d'));
+              $databelitotal = SecurityBootstrap::paramFloat($_POST["beli"] ?? 0);
+              $diskon = $_SESSION['nomdis'.$nota] ?? 0;
+              $perdis = $_SESSION['perdis'.$nota] ?? 0;
+              $ppn = $_SESSION['pajak'.$nota] ?? 0;
+              $bnama = $_SESSION['bnama'.$nota] ?? 0;
+              $biaya = $_SESSION['biaya'.$nota] ?? 0;
+              $nomtax = SecurityBootstrap::paramFloat($_POST["nomtax"] ?? 0);
+              $keterangan = SecurityBootstrap::paramStr($_POST["keterangan"] ?? '', 255);
+              $kasir = $_SESSION["username"] ?? '';
               $status = "belum";
-              $today=date("Y-m-d");
-              $jam=date("H:i");
-              $kegiatan="Penjualan Sales";
 
-
-                 $sql="select * from sale where nota='$nota'";
-            $result=mysqli_query($conn,$sql);
-
-                  if(mysqli_num_rows($result)>0){
-
+                  if(SecurityBootstrap::saleExists($conn, $notaPost)){
                     echo "<script type='text/javascript'>  alert('Data penjualan yang sudah ada tidak bisa diubah!');</script>";
               }
           else if(( $chmod >= 2 || $_SESSION['jabatan'] == 'admin')){
 
-               mysqli_query($conn,"SET session sql_mode = ''");	$sql2 = "insert into sale values( '$nota','$nomor','$tglnota','$duedate','$sub','$perdis','$diskon','$ppn','$nomtax','$bnama','$biaya','$total','$databelitotal','$pelanggan','$kasir','','','','$keterangan','$status','','')";
-               if(mysqli_query($conn, $sql2)){
+               if(SecurityBootstrap::insertSaleInvoice($conn, [
+                   'nota' => $notaPost, 'nomor' => $nomor, 'tglnota' => $tglnota, 'duedate' => $duedate,
+                   'sub' => $sub, 'perdis' => $perdis, 'diskon' => $diskon, 'ppn' => $ppn,
+                   'nomtax' => $nomtax, 'bnama' => $bnama, 'biaya' => $biaya, 'total' => $total,
+                   'databelitotal' => $databelitotal, 'pelanggan' => $pelanggan, 'kasir' => $kasir,
+                   'keterangan' => $keterangan, 'status' => $status,
+               ])){
 
-
-                $mt=mysqli_query($conn,"select * from invoicejual where nota='$nota'");
-                while($rw=mysqli_fetch_assoc($mt)){
-                    $kode=$rw['kode'];
-
-                    $kurang=$rw['jumlah'];
-                  
-                    $status="berhasil";
-                    $bt=mysqli_fetch_assoc(mysqli_query($conn,"select sisa from barang where kode='$kode'"));
-                    $sisaakhir=$bt['sisa'];
-
-             mysqli_query($conn,"SET session sql_mode = ''");	$sql4 = "INSERT INTO mutasi values ( '$kasir','$today','$jam','$kode','$sisaakhir','$kurang','$kegiatan','$nota','','$status')";
-               $mutasi = mysqli_query($conn, $sql4);
-                }
+                SecurityBootstrap::recordSaleMutations($conn, $notaPost, $kasir);
 
                    unset($_SESSION['perdis'.$nota]);
                  unset($_SESSION['nomdis'.$nota]);
@@ -210,22 +185,14 @@ $_SESSION['bnama'.$nota]=0;
                   unset($_SESSION['bnama'.$nota]);
                   unset($_SESSION['biaya'.$nota]);
 
-
-
                   echo "<script type='text/javascript'>  alert('Berhasil, Data telah disimpan!'); </script>";
                echo "<script type='text/javascript'>window.location = 'penjualan';</script>";
 
            } else {
-
             echo "<script type='text/javascript'>  alert('Gagal, Data gagal disimpan!Terjadi kesalahan, hubungi admin');</script>";
-
            }
-
-
-             
              }else{
               echo "<script type='text/javascript'>  alert('Gagal, Data gagal disimpan! Pastikan pembayaran benar');</script>";
-
              }
  }
       }
@@ -321,8 +288,7 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
      
            error_reporting(E_ALL ^ E_DEPRECATED);
 
-           $sql    = "select * from invoicejual where nota ='$nota' order by no";
-           $result = mysqli_query($conn, $sql);
+           $invoiceRows = SecurityBootstrap::queryAll($conn, 'SELECT * FROM invoicejual WHERE nota = ? ORDER BY no', 's', [$nota]);
            $rpp    = 15;
            $reload = "$halaman"."?pagination=true";
            $page   = intval(isset($_GET["page"]) ? $_GET["page"] : 0);
@@ -331,7 +297,7 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 
            if ($page <= 0)
            $page = 1;
-           $tcount  = mysqli_num_rows($result);
+           $tcount  = count($invoiceRows);
            $tpages  = ($tcount) ? ceil($tcount / $rpp) : 1;
            $count   = 0;
            $i       = ($page - 1) * $rpp;
@@ -352,8 +318,7 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
                   <?php
            error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
            while(($count<$rpp) && ($i<$tcount)) {
-           mysqli_data_seek($result,$i);
-           $fill = mysqli_fetch_array($result);
+           $fill = $invoiceRows[$i];
            ?>
             <tbody>
            <tr>
@@ -404,6 +369,7 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
                 <!-- /.box-header -->
             <div class="box-body no-padding">
 <form  method="post" id="Myform" class="form-user">
+<?php echo SecurityBootstrap::csrfField(); ?>
 
               <table class="table table-striped">
                 <tr>

@@ -106,17 +106,15 @@ th, td {
 
 <?php
 error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
+require_once __DIR__ . '/libs/FakturBootstrap.php';
+fakturSecureInit();
+global $conn, $nota, $tipe, $tabel, $tabeldatabase, $judul;
 
-$tipe=$_GET['tipe'];
-$nota = $_GET["nota"];
+$halaman = "faktur_four";
+$dataapa = "Faktur";
 
-
-include "configuration/config_connect.php";
-$halaman = "faktur_four"; // halaman
-$dataapa = "Faktur"; // data
-$tabeldatabase = "invoicejual"; // tabel database
-
-$tabel = "sale";
+$header = fakturApplyHeader($tipe, fakturLoadHeader($conn, $tipe, $nota));
+extract($header);
 
 date_default_timezone_set("Asia/Jakarta");
 $today = date('d-m-Y');
@@ -128,92 +126,29 @@ $today = date('d-m-Y');
         $thousand =".";
         ?>
 <?php
-        $nota = $_GET["nota"];
+        $company = fakturLoadCompany($conn);
+        $nama = $company['nama'] ?? '';
+        $alamat = $company['alamat'] ?? '';
+        $notelp = $company['notelp'] ?? '';
+        $tagline = $company['tagline'] ?? '';
+        $signature = $company['signature'] ?? '';
+        $avatar = $company['avatar'] ?? '';
 
-        $sql1="SELECT * FROM data";
-        $hasil1=mysqli_query($conn,$sql1);
-        $row=mysqli_fetch_assoc($hasil1);
-        $nama=$row['nama'];
-        $alamat=$row['alamat'];
-        $notelp=$row['notelp'];
-        $tagline=$row['tagline'];
-        $signature=$row['signature'];
-        $avatar=$row['avatar'];
+        $pelRow = fakturLoadPelanggan($conn, $pelanggan);
+        $customer = $pelRow['nama'] ?? '';
+        $nohp = $pelRow['nohp'] ?? '';
+        $address = $pelRow['alamat'] ?? '';
 
-
-        if($tipe=='quotation'){
-$tabel = "quotation"; // tabel database
-$tabeldatabase = "quotation_list"; // tabel database
-$judul="Penawaran";
-
-      $sql1="SELECT * FROM $tabel where nota='$nota'";
-        $hasil1=mysqli_query($conn,$sql1);
-        $row=mysqli_fetch_assoc($hasil1);
-        
-        $nomor=$row['nomor'];
-           $kasir=$row['kasir'];
-        $due=$row['due'];
-        $bayar=$row['oleh'];
-        $biaya=$row['biayatambahan'];
-        $total=$row['total'];
-        $status=$row['status'];
-         $tgl=$row['tgl'];
-        $pelanggan=$row['pelanggan'];
-        $diskon=$row['diskon'];
-        $pot=$row['potongan'];
-         $keterangan=$row['keterangan'];
-        $batas="Berlaku Sampai";
-       
+$countitem = fakturCountItems($conn, $tabeldatabase, $nota);
+$numofpage = max(1, (int) ceil($countitem / 27));
+if ($countitem === 27) {
+    $rowoflastpage = 27;
 } else {
-
-$tabel = "sale"; // tabel database
-$tabeldatabase = "invoicejual"; // tabel database
-$judul="Invoice Penjualan";
-
-  $sql1="SELECT * FROM $tabel where nota='$nota'";
-        $hasil1=mysqli_query($conn,$sql1);
-        $row=mysqli_fetch_assoc($hasil1);
-        
-        $nomor=$row['nomor'];
-           $kasir=$row['kasir'];
-        $due=$row['duedate'];
-        $bayar=$row['kasir'];
-        $biaya=$row['biaya'];
-        $total=$row['total'];
-        $status=$row['status'];
-         $tgl=$row['tglsale'];
-        $pelanggan=$row['pelanggan'];
-        $diskon=$row['diskon'];
-        $pot=$row['potongan'];
-         $keterangan=$row['keterangan'];
-        $batas="Jatuh Tempo";
-       
+    $rowoflastpage = $countitem % 27;
 }
 
-        
-       
-
-        $sql1="SELECT * FROM pelanggan where kode='$pelanggan' ";
-        $hasil1=mysqli_query($conn,$sql1);
-        $row=mysqli_fetch_assoc($hasil1);
-        $customer=$row['nama'];
-        $nohp=$row['nohp'];
-        $address=$row['alamat'];
-
-
-$lop=mysqli_fetch_assoc(mysqli_query($conn,"SELECT COUNT(kode) as countitem FROM $tabeldatabase WHERE nota='$nota'"));
-
-$numofpage=ceil($lop['countitem']/27);
-
-if($lop['countitem']==27){
-    $rowoflastpage=27;
-} else {
-    $rowoflastpage=$lop['countitem'] % 27;
-}
-
-
-$filler=27-$rowoflastpage;
-$lastpage=$numofpage-1;
+$filler = 27 - $rowoflastpage;
+$lastpage = $numofpage - 1;
         ?>
 
 
@@ -336,11 +271,9 @@ for ($i = 0; $i < $numofpage; $i++){
                 </tr>
                 <tbody>
               <?php
-                    $sql1a=mysqli_query($conn,"SELECT * FROM $tabeldatabase WHERE nota='$nota' LIMIT $offset,$limit");
-                    $num = ($i) * 9 + 1;
-                  while($rowa=mysqli_fetch_assoc($sql1a)){
-
-            
+                    $pageItems = fakturLoadItems($conn, $tabeldatabase, $nota, $i * 27, 27);
+                    $num = ($i) * 27 + 1;
+                  foreach ($pageItems as $rowa) {
                     ?>
 
                 <tr>
@@ -422,9 +355,8 @@ for ($i = 0; $i < $numofpage; $i++){
 <?php if($status!='dibayar'){?>
                     <td width="40%" align="center" valign="top">
 <?php
-$qws2=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM rekening ORDER BY no LIMIT 1,1"));
-$qws1=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM rekening ORDER BY no LIMIT 1"));
-
+$qws1 = fakturLoadRekeningAt($conn, 0);
+$qws2 = fakturLoadRekeningAt($conn, 1);
 ?>
 
 

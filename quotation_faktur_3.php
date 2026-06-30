@@ -1,62 +1,18 @@
 
 <?php
 error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
-$tipe=$_GET['tipe'];
-$nota = $_GET["nota"];
+require_once __DIR__ . '/libs/FakturBootstrap.php';
+fakturSecureInit();
+global $conn, $nota, $tipe, $tabel, $tabeldatabase, $judul;
 
-include "configuration/config_connect.php";
-$halaman = "faktur_one"; // halaman
-$dataapa = "Faktur"; // data
+$halaman = "faktur_one";
+$dataapa = "Faktur";
 
-if($tipe=='quotation'){
-$tabel = "quotation"; // tabel database
-$tabeldatabase = "quotation_list"; // tabel database
-$judul="Penawaran";
+$header = fakturApplyHeader($tipe, fakturLoadHeader($conn, $tipe, $nota));
+extract($header);
 
-      $sql1="SELECT * FROM $tabel where nota='$nota'";
-        $hasil1=mysqli_query($conn,$sql1);
-        $row=mysqli_fetch_assoc($hasil1);
-        
-        $nomor=$row['nomor'];
-        $due=$row['due'];
-        $bayar=$row['oleh'];
-        $biaya=$row['biayatambahan'];
-        $total=$row['total'];
-        $status=$row['status'];
-         $tgl=$row['tgl'];
-        $pelanggan=$row['pelanggan'];
-        $diskon=$row['diskon'];
-        $pot=$row['potongan'];
-         $keterangan=$row['keterangan'];
-        $batas="Berlaku Sampai*";
-} else {
-
-$tabel = "sale"; // tabel database
-$tabeldatabase = "invoicejual"; // tabel database
-$judul="Invoice";
-
-  $sql1="SELECT * FROM $tabel where nota='$nota'";
-        $hasil1=mysqli_query($conn,$sql1);
-        $row=mysqli_fetch_assoc($hasil1);
-        
-        $nomor=$row['nomor'];
-        $due=$row['duedate'];
-        $bayar=$row['kasir'];
-        $biaya=$row['biaya'];
-        $total=$row['total'];
-        $status=$row['status'];
-         $tgl=$row['tglsale'];
-        $pelanggan=$row['pelanggan'];
-        $diskon=$row['diskon'];
-        $pot=$row['potongan'];
-         $keterangan=$row['keterangan'];
-        $batas="Jatuh Tempo";
-}
-
-
-$forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
-$forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
-
+$forward = mysqli_real_escape_string($conn, $tabeldatabase);
+$forwardpage = mysqli_real_escape_string($conn, $halaman);
 
 date_default_timezone_set("Asia/Jakarta");
 $today = date('d-m-Y');
@@ -69,23 +25,18 @@ $today = date('d-m-Y');
         $thousand =".";
         ?>
 <?php
-        $sql1="SELECT * FROM data";
-        $hasil1=mysqli_query($conn,$sql1);
-        $row=mysqli_fetch_assoc($hasil1);
-        $nama=$row['nama'];
-        $alamat=$row['alamat'];
-        $notelp=$row['notelp'];
-        $tagline=$row['tagline'];
-        $signature=$row['signature'];
-        $avatar=$row['avatar'];
+        $company = fakturLoadCompany($conn);
+        $nama = $company['nama'] ?? '';
+        $alamat = $company['alamat'] ?? '';
+        $notelp = $company['notelp'] ?? '';
+        $tagline = $company['tagline'] ?? '';
+        $signature = $company['signature'] ?? '';
+        $avatar = $company['avatar'] ?? '';
 
-        $sql1="SELECT * FROM pelanggan where kode='$pelanggan' ";
-        $hasil1=mysqli_query($conn,$sql1);
-        $row=mysqli_fetch_assoc($hasil1);
-        $customer=$row['nama'];
-        $nohp=$row['nohp'];
-        $address=$row['alamat'];
-
+        $pelRow = fakturLoadPelanggan($conn, $pelanggan);
+        $customer = $pelRow['nama'] ?? '';
+        $nohp = $pelRow['nohp'] ?? '';
+        $address = $pelRow['alamat'] ?? '';
 
 ?>
 
@@ -166,10 +117,9 @@ $today = date('d-m-Y');
 				</tr>
 
 <?php
- $sql    = "select * from $tabeldatabase where nota ='$nota' order by no";
-   $result = mysqli_query($conn, $sql);
-   $no_urut=0;
-   while ($fill=mysqli_fetch_assoc($result)){
+ $itemRows = fakturLoadItems($conn, $tabeldatabase, $nota, 0, 1000);
+ $no_urut=0;
+ foreach ($itemRows as $fill){
 ?>
 				<tr class="item">
 					
@@ -228,11 +178,7 @@ $today = date('d-m-Y');
 <?php } else {?>
 				 <?php if ($status!='sudah'){?>
 
-				 <?php 
-          $query1="SELECT * FROM  rekening order by no ";
-               $hasil = mysqli_query($conn,$query1);
-          while ($fill = mysqli_fetch_assoc($hasil)){
-            ?>
+				 <?php foreach (fakturLoadRekeningAll($conn) as $fill) { ?>
 
 				<tr class="item">
 					

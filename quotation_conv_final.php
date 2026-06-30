@@ -41,15 +41,14 @@ $tabeldatabase = "barang"; // tabel database
 $chmod = $chmenu3; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
-$search = $_POST['search'];
-$insert = $_POST['insert'];
-$nota= $_GET['nota'];
- $quo= $_GET['q'];
+$search = SecurityBootstrap::secureSearch($_POST['search'] ?? '');
+$nota = SecurityBootstrap::secureNota($_GET['nota'] ?? '');
+$quo = SecurityBootstrap::secureNota($_GET['q'] ?? '');
 ?>
 
 <?php
 
-$a=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM quotation WHERE nota='$quo'"));
+$a = SecurityBootstrap::queryOne($conn, 'SELECT * FROM quotation WHERE nota = ? LIMIT 1', 's', [$quo]) ?: [];
 
 ?>
 
@@ -58,26 +57,12 @@ $a=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM quotation WHERE nota='$q
 
     if($nota == null || $nota == ""){
 
-            $sqle="SELECT SUM(hargaakhir) as data FROM invoicejual WHERE nota='$nota' ";
-            $hasile=mysqli_query($conn,$sqle);
-            $row=mysqli_fetch_assoc($hasile);
-            $datatotal=$row['data'] + $a['biayatambahan'];
-
-            $sqle="SELECT SUM(modal) as data FROM invoicejual WHERE nota='$nota'";
-            $hasile=mysqli_query($conn,$sqle);
-            $row=mysqli_fetch_assoc($hasile);
-            $databelitotal=$row['data'];
+            $datatotal = SecurityBootstrap::sumCartByNota($conn, 'invoicejual', $nota, 'hargaakhir') + ($a['biayatambahan'] ?? 0);
+            $databelitotal = SecurityBootstrap::sumCartByNota($conn, 'invoicejual', $nota, 'modal');
     }else{
 
-      $sqle="SELECT SUM(hargaakhir) as data FROM invoicejual WHERE nota='$nota'";
-      $hasile=mysqli_query($conn,$sqle);
-      $row=mysqli_fetch_assoc($hasile);
-      $datatotal=$row['data'] + $a['biayatambahan'];
-
-      $sqle="SELECT SUM(modal) as data FROM invoicejual WHERE nota='$nota'";
-      $hasile=mysqli_query($conn,$sqle);
-      $row=mysqli_fetch_assoc($hasile);
-      $databelitotal=$row['data'];
+      $datatotal = SecurityBootstrap::sumCartByNota($conn, 'invoicejual', $nota, 'hargaakhir') + ($a['biayatambahan'] ?? 0);
+      $databelitotal = SecurityBootstrap::sumCartByNota($conn, 'invoicejual', $nota, 'modal');
 
 
     }
@@ -93,62 +78,45 @@ $a=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM quotation WHERE nota='$q
 
     if(isset($_POST["simpan"])){
        if($_SERVER["REQUEST_METHOD"] == "POST"){
-           
-            $cust = mysqli_real_escape_string($conn, $_POST["pelanggan"]);
-            
-            if($cust == ''){ 
-                $pelanggan = '0001';
-                
-            } else { $pelanggan = $cust;
-            }
+           SecurityBootstrap::requireCsrf();
 
-              $nota = mysqli_real_escape_string($conn, $_POST["nota"]);
-                  $nomor = mysqli_real_escape_string($conn, $_POST["nomor"]);
-                   $quo = mysqli_real_escape_string($conn, $_POST["quo"]);
-              $duedate = mysqli_real_escape_string($conn, $_POST["duedate"]);
-              $diskon = mysqli_real_escape_string($conn, $_POST["diskon"]);
-               $pot = mysqli_real_escape_string($conn, $_POST["potongan"]);
-                $biaya = mysqli_real_escape_string($conn, $_POST["biaya"]);
-              $total = mysqli_real_escape_string($conn, $_POST["total"]);
-              $tglnota = mysqli_real_escape_string($conn, $_POST["tglnota"]);
+            $cust = SecurityBootstrap::paramStr($_POST["pelanggan"] ?? '', 64);
+            $pelanggan = ($cust === '') ? '0001' : $cust;
 
-               $databelitotal = mysqli_real_escape_string($conn, $_POST["beli"]);
-             
-              
-              
-              $keterangan = mysqli_real_escape_string($conn, $_POST["keterangan"]);
-              $kasir = $_SESSION["username"];
-              $berhasil = "berhasil";
+              $notaPost = SecurityBootstrap::secureNota($_POST["nota"] ?? '');
+              $nomor = SecurityBootstrap::paramStr($_POST["nomor"] ?? '', 64);
+              $quoPost = SecurityBootstrap::secureNota($_POST["quo"] ?? '');
+              $duedate = SecurityBootstrap::optionalDate($_POST["duedate"] ?? '');
+              $diskon = SecurityBootstrap::paramFloat($_POST["diskon"] ?? 0);
+              $pot = SecurityBootstrap::paramFloat($_POST["potongan"] ?? 0);
+              $biaya = SecurityBootstrap::paramFloat($_POST["biaya"] ?? 0);
+              $total = SecurityBootstrap::paramFloat($_POST["total"] ?? 0);
+              $tglnota = SecurityBootstrap::optionalDate($_POST["tglnota"] ?? date('Y-m-d'));
+              $databelitotal = SecurityBootstrap::paramFloat($_POST["beli"] ?? 0);
+              $keterangan = SecurityBootstrap::paramStr($_POST["keterangan"] ?? '', 255);
+              $kasir = $_SESSION["username"] ?? '';
               $belum = "belum";
-              $insert = ($_POST["insert"]);
 
-
-                 $sql="select * from sale where nota='$kode'";
-            $result=mysqli_query($conn,$sql);
-
-                  if(mysqli_num_rows($result)>0){
-
+                  if(SecurityBootstrap::saleExists($conn, $notaPost)){
                     echo "<script type='text/javascript'>  alert('Data penjualan yang sudah ada tidak bisa diubah!');</script>";
               }
           else if(( $chmod >= 2 || $_SESSION['jabatan'] == 'admin')){
 
-               mysqli_query($conn,"SET session sql_mode = ''");	$sql2 = "insert into sale values( '$nota','$nomor','$tglnota','$duedate','$total','$diskon','$pot','$biaya','$databelitotal','$pelanggan','$kasir','','$keterangan','$belum','','')";
-               $insertan = mysqli_query($conn, $sql2);
-//update mutasi
-               $sql3 = "UPDATE mutasi SET status='$berhasil' where kegiatan='menjual barang hasil penawaran' AND keterangan='$quo'";
-               $updatemutasi = mysqli_query($conn, $sql3);
+               if(SecurityBootstrap::insertSaleFromQuotation($conn, [
+                   'nota' => $notaPost, 'nomor' => $nomor, 'tglnota' => $tglnota, 'duedate' => $duedate,
+                   'total' => $total, 'diskon' => $diskon, 'pot' => $pot, 'biaya' => $biaya,
+                   'databelitotal' => $databelitotal, 'pelanggan' => $pelanggan, 'kasir' => $kasir,
+                   'keterangan' => $keterangan, 'status' => $belum,
+               ])){
 
-                $sql4 = "UPDATE quotation SET status='berhasil', notainvoice='$nota' where nota='$quo'";
-               $updatequo = mysqli_query($conn, $sql4);
-
-               $sql5 = "UPDATE quotation_list SET conv='2' where nota='$quo'";
-               $updatequo = mysqli_query($conn, $sql4);
+               SecurityBootstrap::execute($conn, "UPDATE mutasi SET status = 'berhasil' WHERE kegiatan = 'menjual barang hasil penawaran' AND keterangan = ?", 's', [$quoPost]);
+               SecurityBootstrap::execute($conn, "UPDATE quotation SET status = 'berhasil', notainvoice = ? WHERE nota = ?", 'ss', [$notaPost, $quoPost]);
+               SecurityBootstrap::execute($conn, "UPDATE quotation_list SET conv = '2' WHERE nota = ?", 's', [$quoPost]);
 
                echo "<script type='text/javascript'>  alert('Berhasil, Data telah disimpan!'); </script>";
                echo "<script type='text/javascript'>window.location = 'penjualan';</script>";
              }else{
               echo "<script type='text/javascript'>  alert('Gagal, Data gagal disimpan! Pastikan pembayaran benar');</script>";
-
              }
 
       }
@@ -280,6 +248,7 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
                 <!-- /.box-header -->
             <div class="box-body no-padding">
 <form  method="post" id="Myform" class="form-user">
+<?php echo SecurityBootstrap::csrfField(); ?>
 
               <table class="table table-striped">
                 <tr>

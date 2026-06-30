@@ -107,8 +107,10 @@ $tabeldatabase = "operasional"; // tabel database
 $chmod = $chmenu9; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
-$bulan = $_POST['bulan'];
-$tahun = $_POST['tahun'];
+$bulan = SecurityBootstrap::sanitizeMonth($_POST['bulan'] ?? date('m'));
+$tahun = SecurityBootstrap::sanitizeYear($_POST['tahun'] ?? date('Y'));
+$dari = 'Semua';
+$sampe = 'Semua';
 
 ?>
 
@@ -209,12 +211,17 @@ if ($chmod == '1' || $chmod == '2' || $chmod == '3' || $chmod == '4' || $chmod =
   if($_SERVER["REQUEST_METHOD"] == "GET"){
 
 
-$dr = $_GET['dari'];
-$sam = $_GET['sampai'];
+$dr = SecurityBootstrap::optionalDate($_GET['dari'] ?? '');
+$sam = SecurityBootstrap::sanitizeDate($_GET['sampai'] ?? date('Y-m-d'));
 
-      
-$caba       = mysqli_query($conn, "SELECT tipe,SUM(biaya) as cosi FROM operasional WHERE tanggal BETWEEN '" . $dr . "' AND  '" . $sam . "' GROUP BY tipe order by cosi asc"); 
-$biaya       = mysqli_query($conn, "SELECT tipe,SUM(biaya) as cost FROM operasional WHERE tanggal BETWEEN '" . $dr . "' AND  '" . $sam . "' GROUP BY tipe order by cost asc");  
+$opsChartRows = SecurityBootstrap::queryAll(
+    $conn,
+    'SELECT tipe, SUM(biaya) AS cost FROM operasional WHERE tanggal BETWEEN ? AND ? GROUP BY tipe ORDER BY cost ASC',
+    'ss',
+    [$dr !== '' ? $dr : '1970-01-01', $sam]
+);
+$opsLabels = array_column($opsChartRows, 'tipe');
+$opsCosts = array_column($opsChartRows, 'cost');
 
 
 
@@ -267,12 +274,12 @@ if($dr!=''){
           data : {
         // label nama setiap Value
         
-         labels: [<?php while ($b = mysqli_fetch_array($caba)) { echo '"' . $b['tipe'] . '",';}?>],
+         labels: <?php echo json_encode($opsLabels); ?>,
 
         datasets: [{
           // Jumlah Value yang ditampilkan
             label: '# dalam rupiah',
-           data: [<?php while ($b = mysqli_fetch_array($biaya)) { echo '"' . $b['cost'] . '",';}?>],
+           data: <?php echo json_encode($opsCosts); ?>,
  
                    borderWidth: 1
         }],
@@ -297,26 +304,15 @@ if($dr!=''){
                  
                 </tr>
 
-<?php  
-
-
-$sql = "SELECT tipe,SUM(biaya) as cost FROM operasional WHERE tanggal BETWEEN '" . $dr . "' AND  '" . $sam . "' GROUP BY tipe order by no asc";
-$hasil = mysqli_query($conn,$sql);
-
-$no_urut=0;
-while ($fill = mysqli_fetch_assoc($hasil)){ ?>
-
+<?php
+$no_urut = 0;
+foreach ($opsChartRows as $fill) {
+?>
                 <tr>
                   <td><?php echo ++$no_urut;?></td>
-                  <td><?php  echo mysqli_real_escape_string($conn, $fill['tipe']); ?></td>
-                  <td>Rp 
-                   <?php  echo mysqli_real_escape_string($conn, $fill['cost']); ?>
-                    </div>
-                  </td>
-                  
-                  
+                  <td><?php echo htmlspecialchars($fill['tipe'], ENT_QUOTES, 'UTF-8'); ?></td>
+                  <td>Rp <?php echo number_format((float) $fill['cost']); ?></td>
                 </tr>
-
 <?php } ?>
 
 
@@ -365,32 +361,30 @@ while ($fill = mysqli_fetch_assoc($hasil)){ ?>
                     <th style="width: 40px">User</th>
                 </tr>
   
-  <?php  
-
-if(isset($dr)){
-
-$sql1 = "SELECT * FROM operasional WHERE tanggal BETWEEN '" . $dr . "' AND  '" . $sam . "' order by no desc";
+  <?php
+if (isset($dr) && isset($sam)) {
+    $detailRows = SecurityBootstrap::queryAll(
+        $conn,
+        'SELECT * FROM operasional WHERE tanggal BETWEEN ? AND ? ORDER BY no DESC',
+        'ss',
+        [$dr !== '' ? $dr : '1970-01-01', $sam]
+    );
 } else {
-$sql1 = "SELECT * FROM operasional ORDER BY no desc ";
+    $detailRows = SecurityBootstrap::queryAll($conn, 'SELECT * FROM operasional ORDER BY no DESC');
 }
 
-$hasil1 = mysqli_query($conn,$sql1);
-
-$no_urut=0;
-while ($fill = mysqli_fetch_assoc($hasil1)){ ?>
+$no_urut = 0;
+foreach ($detailRows as $fill) {
+?>
 
                 <tr>
                   <td><?php echo ++$no_urut;?></td>
-                  <td><?php  echo mysqli_real_escape_string($conn, $fill['nama']); ?></td>
-                  <td>
-                   <?php  echo mysqli_real_escape_string($conn, $fill['tipe']); ?>
-                  </td>
-                  <td><?php  echo mysqli_real_escape_string($conn, $fill['biaya']); ?></td>
-                  <td><?php  echo mysqli_real_escape_string($conn, $fill['keterangan']); ?></td>
-                   <td><?php  echo mysqli_real_escape_string($conn, $fill['kasir']); ?></td>
+                  <td><?php echo htmlspecialchars($fill['nama'], ENT_QUOTES, 'UTF-8'); ?></td>
+                  <td><?php echo htmlspecialchars($fill['tipe'], ENT_QUOTES, 'UTF-8'); ?></td>
+                  <td><?php echo htmlspecialchars((string) $fill['biaya'], ENT_QUOTES, 'UTF-8'); ?></td>
+                  <td><?php echo htmlspecialchars($fill['keterangan'], ENT_QUOTES, 'UTF-8'); ?></td>
+                  <td><?php echo htmlspecialchars($fill['kasir'], ENT_QUOTES, 'UTF-8'); ?></td>
                 </tr>
-
-
 <?php } ?>
               </table>
             </div>

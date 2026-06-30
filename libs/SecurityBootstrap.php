@@ -570,6 +570,82 @@ class SecurityBootstrap
         return $row['data'] ?? 0;
     }
 
+    public static function optionalDate($value)
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return '';
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
+            self::deny(400, 'Format tanggal tidak valid.');
+        }
+        return $value;
+    }
+
+    public static function secureFakturType($tipe)
+    {
+        $tipe = strtolower(trim((string) $tipe));
+        return in_array($tipe, ['quotation', 'sale', 'invoice', 'jual'], true) ? $tipe : 'quotation';
+    }
+
+    public static function pelangganName($conn, $kode)
+    {
+        $row = self::queryOne($conn, 'SELECT nama FROM pelanggan WHERE kode = ? LIMIT 1', 's', [$kode]);
+        return $row['nama'] ?? '';
+    }
+
+    public static function saleExists($conn, $nota)
+    {
+        return (bool) self::queryOne($conn, 'SELECT nota FROM sale WHERE nota = ? LIMIT 1', 's', [$nota]);
+    }
+
+    public static function insertSaleInvoice($conn, $fields)
+    {
+        return self::execute(
+            $conn,
+            "INSERT INTO sale VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', '', '', ?, ?, '', '')",
+            'ssssdddddsdddssss',
+            [
+                $fields['nota'], $fields['nomor'], $fields['tglnota'], $fields['duedate'],
+                $fields['sub'], $fields['perdis'], $fields['diskon'], $fields['ppn'],
+                $fields['nomtax'], $fields['bnama'], $fields['biaya'], $fields['total'],
+                $fields['databelitotal'], $fields['pelanggan'], $fields['kasir'],
+                $fields['keterangan'], $fields['status'],
+            ]
+        );
+    }
+
+    public static function insertSaleFromQuotation($conn, $fields)
+    {
+        return self::execute(
+            $conn,
+            "INSERT INTO sale VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?, ?, '', '')",
+            'ssssddddsssss',
+            [
+                $fields['nota'], $fields['nomor'], $fields['tglnota'], $fields['duedate'],
+                $fields['total'], $fields['diskon'], $fields['pot'], $fields['biaya'],
+                $fields['databelitotal'], $fields['pelanggan'], $fields['kasir'],
+                $fields['keterangan'], $fields['status'],
+            ]
+        );
+    }
+
+    public static function recordSaleMutations($conn, $nota, $kasir, $kegiatan = 'Penjualan Sales')
+    {
+        $today = date('Y-m-d');
+        $jam = date('H:i');
+        $items = self::queryAll($conn, 'SELECT kode, jumlah FROM invoicejual WHERE nota = ?', 's', [$nota]);
+        foreach ($items as $rw) {
+            $stock = self::queryOne($conn, 'SELECT sisa FROM barang WHERE kode = ? LIMIT 1', 's', [$rw['kode']]);
+            self::execute(
+                $conn,
+                "INSERT INTO mutasi (namauser, tgl, jam, kodebarang, sisa, jumlah, kegiatan, keterangan, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'berhasil')",
+                'ssssisss',
+                [$kasir, $today, $jam, $rw['kode'], $stock['sisa'] ?? 0, $rw['jumlah'], $kegiatan, $nota, '']
+            );
+        }
+    }
+
     public static function query($conn, $sql, $types = '', $params = [])
     {
         $stmt = mysqli_prepare($conn, $sql);
