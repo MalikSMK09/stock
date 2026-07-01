@@ -1,6 +1,6 @@
 <?php
 
- include "config_connect.php";
+ include __DIR__ . "/config_connect.php";
  
  function autoNumber1(){
   $query = 'SELECT MAX(RIGHT(kode, 4)) as max_id FROM nota ORDER BY idnota';

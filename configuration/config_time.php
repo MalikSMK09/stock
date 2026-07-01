@@ -1,7 +1,7 @@
 <?php	
 function login_validate() {
 error_reporting(0);	
-include 'configuration/config_connect.php';
+include __DIR__ . '/config_connect.php';
 
 	    $sessiontime = "";
 		

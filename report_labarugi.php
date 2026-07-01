@@ -119,6 +119,7 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 <div class="row" >
 
   <form method="POST" action="">
+  <?php echo SecurityBootstrap::csrfField(); ?>
 
                       <div class="col-sm-3">
                      <input type="text" class="form-control" id="datepicker" name="dari" autocomplete="off" placeholder="dari Tanggal" >

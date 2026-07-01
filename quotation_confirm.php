@@ -139,6 +139,7 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
                                 <!-- /.box-body -->
                           
                              <form method="post">
+                             <?php echo SecurityBootstrap::csrfField(); ?>
                                   <input type="hidden" class="form-control" name="nota" value="<?php echo autoNumber();?>">
                                    <input type="hidden" class="form-control" name="quo" value="<?php echo $q;?>">
                               <button type="submit" name="cancel" class="btn bg-maroon">Batalkan Konversi Sebelumnya</button>

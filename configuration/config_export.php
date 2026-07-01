@@ -2,7 +2,7 @@
 require_once __DIR__ . '/config_security.php';
 session_start();
 SecurityBootstrap::requireAuth();
-include 'config_connect.php';
+include __DIR__ . '/config_connect.php';
 error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
 $search = SecurityBootstrap::paramStr($_GET['search'] ?? '', 100);
 $forward = SecurityBootstrap::whitelistExport($_GET['forward'] ?? '');

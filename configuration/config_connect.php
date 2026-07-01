@@ -4,6 +4,7 @@ error_reporting(E_ALL ^ E_DEPRECATED);
 
 require_once __DIR__ . '/config_security.php';
 
+if (!function_exists('loadEnvFile')) {
 function loadEnvFile($path)
 {
     if (!file_exists($path)) {
@@ -29,6 +30,7 @@ function loadEnvFile($path)
             $_ENV[$key] = $value;
         }
     }
+}
 }
 
 loadEnvFile(__DIR__ . '/.env');
