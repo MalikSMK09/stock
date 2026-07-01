@@ -43,7 +43,7 @@ $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
 $search = $_POST['search'];
 $insert = $_POST['insert'];
-$nota= $_GET['nota'];
+$nota= SecurityBootstrap::secureNota($_GET['nota'] ?? '');
  
 ?>
 
@@ -53,26 +53,12 @@ $nota= $_GET['nota'];
 
     if($nota == null || $nota == ""){
 
-            $sqle="SELECT SUM(hargaakhir) as data FROM quotation_list WHERE nota='$nota' ";
-            $hasile=mysqli_query($conn,$sqle);
-            $row=mysqli_fetch_assoc($hasile);
-            $datatotal=$row['data'];
-
-            $sqle="SELECT SUM(modal) as data FROM quotation_list WHERE nota='$nota'";
-            $hasile=mysqli_query($conn,$sqle);
-            $row=mysqli_fetch_assoc($hasile);
-            $databelitotal=$row['data'];
+            $datatotal = SecurityBootstrap::sumCartByNota($conn, 'quotation_list', $nota, 'hargaakhir');
+            $databelitotal = SecurityBootstrap::sumCartByNota($conn, 'quotation_list', $nota, 'modal');
     }else{
 
-      $sqle="SELECT SUM(hargaakhir) as data FROM quotation_list WHERE nota='$nota'";
-      $hasile=mysqli_query($conn,$sqle);
-      $row=mysqli_fetch_assoc($hasile);
-      $datatotal=$row['data'];
-
-      $sqle="SELECT SUM(modal) as data FROM quotation_list WHERE nota='$nota'";
-      $hasile=mysqli_query($conn,$sqle);
-      $row=mysqli_fetch_assoc($hasile);
-      $databelitotal=$row['data'];
+      $datatotal = SecurityBootstrap::sumCartByNota($conn, 'quotation_list', $nota, 'hargaakhir');
+      $databelitotal = SecurityBootstrap::sumCartByNota($conn, 'quotation_list', $nota, 'modal');
 
 
     }

@@ -1,8 +1,9 @@
 <?php
 
 
-include 'config_connect.php';
+include __DIR__ . '/config_connect.php';
 date_default_timezone_set("Asia/Jakarta");
+global $conn;
 $harisekarang=date('d');
 $bulansekarang=date('m');
 

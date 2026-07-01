@@ -1,10 +1,15 @@
-<?php include 'config_connect.php';
+<?php
+require_once __DIR__ . '/config_security.php';
+session_start();
+SecurityBootstrap::requireAuth();
+include __DIR__ . '/config_connect.php';
 error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
-$search = $_GET['search'];
-
-$forward = $_GET['forward'];
+$search = SecurityBootstrap::paramStr($_GET['search'] ?? '', 100);
+$forward = SecurityBootstrap::whitelistExport($_GET['forward'] ?? '');
+$bulan = SecurityBootstrap::paramStr($_GET['bulan'] ?? '', 2);
+$tahun = SecurityBootstrap::paramStr($_GET['tahun'] ?? '', 4);
 header("Content-type: application/vnd-ms-excel");
-header("Content-Disposition: attachment; filename=$forward.xls");
+header("Content-Disposition: attachment; filename=" . $forward . ".xls");
 
 ?>
 <?php if($forward == 'bayar'){ ?>
@@ -23,10 +28,11 @@ header("Content-Disposition: attachment; filename=$forward.xls");
                                         </thead>
                       <?php
   error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
-          $query1="SELECT * FROM  $forward where nota like '%$search%' or tglbayar like '%$search%' or kasir like '%$search%' order by no ";
-        $hasil = mysqli_query($conn,$query1);
+  $like = '%' . SecurityBootstrap::escapeLike($search) . '%';
+  $query1 = "SELECT * FROM bayar WHERE nota LIKE ? ESCAPE '\\\\' OR tglbayar LIKE ? ESCAPE '\\\\' OR kasir LIKE ? ESCAPE '\\\\' ORDER BY no";
+  $hasilRows = SecurityBootstrap::queryAll($conn, $query1, 'sss', [$like, $like, $like]);
         $no = 1;
-        while ($fill = mysqli_fetch_assoc($hasil)){
+        foreach ($hasilRows as $fill){
           ?>
                      <tbody>
 <tr>
@@ -35,10 +41,9 @@ header("Content-Disposition: attachment; filename=$forward.xls");
   <td><?php  echo mysqli_real_escape_string($conn, $fill['tglbayar']); ?></td>
   <?php
 $nota = $fill['nota'];
-$sqle="SELECT COUNT( nota ) AS data FROM transaksimasuk WHERE nota ='$nota'";
-$hasile=mysqli_query($conn,$sqle);
-$rowa=mysqli_fetch_assoc($hasile);
-$jumlahbayar=$rowa['data'];
+$sqle = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(nota) AS data FROM transaksimasuk WHERE nota = ?', 's', [$nota]);
+$rowa = $sqle ?: ['data' => 0];
+$jumlahbayar = $rowa['data'];
    ?>
   <td><?php  echo mysqli_real_escape_string($conn, $jumlahbayar); ?></td>
   <td><?php  echo mysqli_real_escape_string($conn, $fill['total']); ?></td>
@@ -76,10 +81,11 @@ $jumlahbayar=$rowa['data'];
                       <?php
   error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
 
-  $query1="select * from $forward where kode like '%$search%' or nama like '%$search%' or kategori like '%$search%' order by no";
-        $hasil = mysqli_query($conn,$query1);
+  $like = '%' . SecurityBootstrap::escapeLike($search) . '%';
+  $query1 = "SELECT * FROM barang WHERE kode LIKE ? ESCAPE '\\\\' OR nama LIKE ? ESCAPE '\\\\' OR kategori LIKE ? ESCAPE '\\\\' ORDER BY no";
+  $hasilRows = SecurityBootstrap::queryAll($conn, $query1, 'sss', [$like, $like, $like]);
         $no = 1;
-        while ($fill = mysqli_fetch_assoc( $hasil)){
+        foreach ($hasilRows as $fill){
           ?>
                      <tbody>
 <tr>
@@ -134,15 +140,12 @@ $jumlahbayar=$rowa['data'];
   <td><?php  echo mysqli_real_escape_string($conn, $fill['tglsale']); ?></td>
   <?php
 $nota = $fill['nota'];
-$sqle="SELECT COUNT( nota ) AS data FROM invoicebeli WHERE nota ='$nota'";
-$hasile=mysqli_query($conn,$sqle);
-$rowa=mysqli_fetch_assoc($hasile);
-$jumlahbeli=$rowa['data'];
+$sqle = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(nota) AS data FROM invoicebeli WHERE nota = ?', 's', [$nota]);
+$rowa = $sqle ?: ['data' => 0];
+$jumlahbeli = $rowa['data'];
 
-$jml= " SELECT SUM(jumlah) tot_beli FROM invoicebeli WHERE nota ='$nota'"  ;
-$hasil1=mysqli_query($conn,$jml);
-$row1=mysqli_fetch_array($hasil1);
-$jmlbeli=$row1['tot_beli'];
+$jmlRow = SecurityBootstrap::queryOne($conn, 'SELECT SUM(jumlah) AS tot_beli FROM invoicebeli WHERE nota = ?', 's', [$nota]);
+$jmlbeli = $jmlRow['tot_beli'] ?? 0;
 
    ?>
    
@@ -185,13 +188,15 @@ $jmlbeli=$row1['tot_beli'];
                       <?php
   error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
 if($tahun == null || $tahun == ""){
-  $query1="SELECT * FROM  $forward where nota IN (SELECT nota FROM transaksimasuk) order by no ";
+  $query1 = "SELECT * FROM bayar WHERE nota IN (SELECT nota FROM transaksimasuk) ORDER BY no";
+  $hasilRows = SecurityBootstrap::queryAll($conn, $query1);
 }else{
-  $query1="SELECT * FROM  $forward where nota IN (SELECT nota FROM transaksimasuk) and tglbayar like '$tahun-$bulan-%' order by no ";
+  $dateLike = $tahun . '-' . str_pad($bulan, 2, '0', STR_PAD_LEFT) . '-%';
+  $query1 = "SELECT * FROM bayar WHERE nota IN (SELECT nota FROM transaksimasuk) AND tglbayar LIKE ? ORDER BY no";
+  $hasilRows = SecurityBootstrap::queryAll($conn, $query1, 's', [$dateLike]);
 }
-        $hasil = mysqli_query($conn,$query1);
         $no = 1;
-        while ($fill = mysqli_fetch_assoc($hasil)){
+        foreach ($hasilRows as $fill){
           ?>
                      <tbody>
 <tr>
@@ -200,10 +205,9 @@ if($tahun == null || $tahun == ""){
   <td><?php  echo mysqli_real_escape_string($conn , $fill['tglbayar']); ?></td>
   <?php
 $nota = $fill['nota'];
-$sqle="SELECT COUNT( nota ) AS data FROM transaksimasuk WHERE nota ='$nota'";
-$hasile=mysqli_query($conn,$sqle);
-$rowa=mysqli_fetch_assoc($hasile);
-$jumlahbayar=$rowa['data'];
+$sqle = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(nota) AS data FROM transaksimasuk WHERE nota = ?', 's', [$nota]);
+$rowa = $sqle ?: ['data' => 0];
+$jumlahbayar = $rowa['data'];
    ?>
   <td><?php  echo mysqli_real_escape_string($conn, $jumlahbayar); ?></td>
   <td><?php  echo mysqli_real_escape_string($conn, $fill['total']); ?></td>
@@ -244,13 +248,15 @@ $jumlahbayar=$rowa['data'];
                       <?php
   error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
 if($tahun == null || $tahun == ""){
-  $query1="SELECT * FROM  $forward where nota IN (SELECT nota FROM transaksimasuk) order by no ";
+  $query1 = "SELECT * FROM bayar WHERE nota IN (SELECT nota FROM transaksimasuk) ORDER BY no";
+  $hasilRows = SecurityBootstrap::queryAll($conn, $query1);
 }else{
-  $query1="SELECT * FROM  $forward where nota IN (SELECT nota FROM transaksimasuk) and tglbayar like '$tahun-$bulan-%' order by no ";
+  $dateLike = $tahun . '-' . str_pad($bulan, 2, '0', STR_PAD_LEFT) . '-%';
+  $query1 = "SELECT * FROM bayar WHERE nota IN (SELECT nota FROM transaksimasuk) AND tglbayar LIKE ? ORDER BY no";
+  $hasilRows = SecurityBootstrap::queryAll($conn, $query1, 's', [$dateLike]);
 }
-        $hasil = mysqli_query($conn,$query1);
         $no = 1;
-        while ($fill = mysqli_fetch_assoc($hasil)){
+        foreach ($hasilRows as $fill){
           ?>
                      <tbody>
 <tr>
@@ -259,10 +265,9 @@ if($tahun == null || $tahun == ""){
   <td><?php  echo mysqli_real_escape_string($conn, $fill['tglbayar']); ?></td>
   <?php
 $nota = $fill['nota'];
-$sqle="SELECT COUNT( nota ) AS data FROM transaksimasuk WHERE nota ='$nota'";
-$hasile=mysqli_query($conn,$sqle);
-$rowa=mysqli_fetch_assoc($hasile);
-$jumlahbayar=$rowa['data'];
+$sqle = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(nota) AS data FROM transaksimasuk WHERE nota = ?', 's', [$nota]);
+$rowa = $sqle ?: ['data' => 0];
+$jumlahbayar = $rowa['data'];
    ?>
   <td><?php  echo mysqli_real_escape_string($conn, $jumlahbayar); ?></td>
   <td><?php  echo mysqli_real_escape_string($conn, $fill['total']); ?></td>
@@ -296,13 +301,15 @@ $jumlahbayar=$rowa['data'];
                       <?php
   error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
 if($tahun == null || $tahun == ""){
-  $query1="SELECT * FROM  $forward order by no ";
+  $query1 = "SELECT * FROM operasional ORDER BY no";
+  $hasilRows = SecurityBootstrap::queryAll($conn, $query1);
 }else{
-  $query1="SELECT * FROM  $forward where tanggal like '$tahun-$bulan-%' order by no ";
+  $dateLike = $tahun . '-' . str_pad($bulan, 2, '0', STR_PAD_LEFT) . '-%';
+  $query1 = "SELECT * FROM operasional WHERE tanggal LIKE ? ORDER BY no";
+  $hasilRows = SecurityBootstrap::queryAll($conn, $query1, 's', [$dateLike]);
 }
-        $hasil = mysqli_query($conn,$query1);
         $no = 1;
-        while ($fill = mysqli_fetch_assoc($hasil)){
+        foreach ($hasilRows as $fill){
           ?>
                      <tbody>
 <tr>
@@ -346,13 +353,14 @@ $bulan = $_GET['bulan'];
                       <?php
   error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
 if($tahun == null || $tahun == ""){
-  $query1="SELECT * FROM  $forward order by no ";
+  $query1 = "SELECT * FROM sale ORDER BY no";
+  $hasilRows = SecurityBootstrap::queryAll($conn, $query1);
 }else{
-  $query1="SELECT * FROM  $forward where YEAR(tglsale) like '%$tahun%' AND MONTH(tglsale) like '%$bulan%' order by no ";
+  $query1 = "SELECT * FROM sale WHERE YEAR(tglsale) = ? AND MONTH(tglsale) = ? ORDER BY no";
+  $hasilRows = SecurityBootstrap::queryAll($conn, $query1, 'ii', [(int) $tahun, (int) $bulan]);
 }
-        $hasil = mysqli_query($conn,$query1);
         $no = 1;
-        while ($fill = mysqli_fetch_assoc($hasil)){
+        foreach ($hasilRows as $fill){
           ?>
                      <tbody>
 <tr>
@@ -362,9 +370,8 @@ if($tahun == null || $tahun == ""){
   <td><?php  echo mysqli_real_escape_string($conn, number_format($fill['total'])); ?></td>
   <td><?php  echo mysqli_real_escape_string($conn, number_format($fill['diskon'])); ?></td>
   <td><?php  $pgn = $fill['pelanggan'];
-  $sql = "SELECT nama FROM pelanggan where kode='$pgn'";
-  $r =mysqli_fetch_assoc(mysqli_query($conn, $sql));
-  echo mysqli_real_escape_string($conn, $r['nama']); ?></td>
+  $r = SecurityBootstrap::queryOne($conn, 'SELECT nama FROM pelanggan WHERE kode = ? LIMIT 1', 's', [$pgn]);
+  echo mysqli_real_escape_string($conn, $r['nama'] ?? ''); ?></td>
   <td><?php  echo mysqli_real_escape_string($conn, $fill['kasir']); ?></td>
             </tr><?php
           ;
@@ -400,11 +407,10 @@ if($tahun == null || $tahun == ""){
                       <?php
   error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
 
-  $query1="select mutasi.namauser,mutasi.tgl,mutasi.kodebarang,mutasi.status,mutasi.jumlah,mutasi.sisa,mutasi.kegiatan,mutasi.keterangan,barang.nama from mutasi inner join barang on mutasi.kodebarang=barang.kode order by mutasi.no desc";
-
-        $hasil = mysqli_query($conn,$query1);
+  $query1 = "SELECT mutasi.namauser, mutasi.tgl, mutasi.kodebarang, mutasi.status, mutasi.jumlah, mutasi.sisa, mutasi.kegiatan, mutasi.keterangan, barang.nama FROM mutasi INNER JOIN barang ON mutasi.kodebarang = barang.kode ORDER BY mutasi.no DESC";
+  $hasilRows = SecurityBootstrap::queryAll($conn, $query1);
         $no = 1;
-        while ($fill = mysqli_fetch_assoc($hasil)){
+        foreach ($hasilRows as $fill){
           ?>
                      <tbody>
 <tr>

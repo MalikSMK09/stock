@@ -1,13 +1,11 @@
 <?php
 include "configuration/config_connect.php";
 include "configuration/config_chmod.php";
-$nouser= $_SESSION['nouser'];
-$user= "SELECT * FROM user WHERE no='$nouser' ";
-$query = mysqli_query($conn, $user);
-$row  = mysqli_fetch_assoc($query);
-$nama = $row['nama'];
-$jabatan = $row['jabatan'];
-$avatar = $row['avatar'];
+$nouser = SecurityBootstrap::paramInt($_SESSION['nouser'] ?? 0);
+$row = SecurityBootstrap::queryOne($conn, 'SELECT nama, jabatan, avatar FROM user WHERE no = ? LIMIT 1', 'i', [$nouser]);
+$nama = $row['nama'] ?? '';
+$jabatan = $row['jabatan'] ?? '';
+$avatar = $row['avatar'] ?? '';
 $q=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM backset"));
 ?>
 
@@ -311,6 +309,9 @@ if($chmenu10 >= 1 || $_SESSION['jabatan'] == 'admin'){ ?>
                                <ul class="treeview-menu">
                                 <li>
                                     <a href="set_general"><i class="fa fa-circle-o"></i>General Setting</a>
+                                </li>
+                                <li>
+                                    <a href="security_monitor"><i class="fa fa-shield"></i>Security Monitor</a>
                                 </li>
                                    <li>
                                 <a href="payment_options"><i class="fa fa-circle-o"></i>Metode Bayar</a>

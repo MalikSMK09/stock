@@ -1,19 +1,20 @@
 <?php
 
+require_once __DIR__ . '/config_security.php';
 
 // Url
 
 
 // Configuration
 
-function alltotal() { include 'configuration/config_alltotal.php'; } // Alltotal Configuration
-function connect() { include 'configuration/config_connect.php'; } // Connect Configuration
-function excelreader() { include 'configuration/config_excel_reader.php'; } // Excel Reader Configuration
-function generate() { include 'configuration/config_generate.php'; } // Generate Configuration
-function pagination() { include 'configuration/config_pagination.php'; } // Pagination Configuration
-function session() { include 'configuration/config_session.php'; } // Session Configuration
-function session2() { include 'configuration/config_session2.php'; } // Session Two Configuration
-function timing() { include 'configuration/config_time.php'; } // Timing Two Configuration
+function alltotal() { global $conn; include __DIR__ . '/config_alltotal.php'; }
+function connect() { global $conn; include __DIR__ . '/config_connect.php'; }
+function excelreader() { include __DIR__ . '/config_excel_reader.php'; }
+function generate() { global $conn; include __DIR__ . '/config_generate.php'; }
+function pagination() { include __DIR__ . '/config_pagination.php'; }
+function session() { include __DIR__ . '/config_session.php'; }
+function session2() { include __DIR__ . '/config_session2.php'; }
+function timing() { global $conn; include __DIR__ . '/config_time.php'; }
 
 // Component
 
@@ -28,7 +29,7 @@ function usermenu() { include 'component/core/user_menu.php'; } // Menu Componen
 // ETC
 
 function breadcrumb() { include 'component/core/breadcrumb.php'; } // Breadcrumb Component
-function etc() { include 'configuration/config_etc.php'; } // etc Configuration
+function etc() { global $conn; include __DIR__ . '/config_etc.php'; }
 function encryption() { include 'configuration/config_encrypt.php'; } // encrypt Configuration
 
 

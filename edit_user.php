@@ -77,18 +77,13 @@ if ($search != null || $search != "") {
 
 
     $username=$password=$nama=$alamat=$nohp=$tgllahir=$tglaktif=$avatar=$jabatan=$insert=$no="";
-    $no = $_GET["no"];
+    $no = SecurityBootstrap::paramInt($_GET["no"] ?? 0);
     $insert = '1';
-
-
 
     if(($no != null || $no != "") && ($chmod >= 3 || $_SESSION['jabatan'] == 'admin')){
 
-         $sql="select * from $tabeldatabase where no='$no'";
-                  $hasil2 = mysqli_query($conn,$sql);
-
-
-                  while ($fill = mysqli_fetch_assoc($hasil2)){
+         $editRows = SecurityBootstrap::queryAll($conn, "SELECT * FROM user WHERE no = ?", 'i', [$no]);
+                  foreach ($editRows as $fill) {
 
 
                   $username = $fill["userna_me"];
@@ -125,12 +120,11 @@ if ($search != null || $search != "") {
                       $tmp = $_FILES['avatar']['tmp_name'];
                       $avatar = "dist/upload/".$namaavatar;
                       $insert = ($_POST["insert"]);
-                      $no = ($_GET["no"]);
+                      $no = SecurityBootstrap::paramInt($_GET["no"] ?? 0);
 
-                 $sql="select * from $tabeldatabase where no ='$no'";
-            $result=mysqli_query($conn,$sql);
+                 $existingUser = SecurityBootstrap::queryOne($conn, 'SELECT no FROM user WHERE no = ? LIMIT 1', 'i', [$no]);
 
-                  if(mysqli_num_rows($result)>0){
+                  if($existingUser){
               if((($tipeavatar == "image/jpeg" || $tipeavatar == "image/png") && ($ukuranavatar <= 10000000 && $username != null)) && ($chmod >= 3 || $_SESSION['jabatan'] == 'admin')){
                       move_uploaded_file($tmp, $avatar);
                       $sql1 = "update $tabeldatabase set nama='$nama', nohp='$nohp', alamat='$alamat', tgllahir='$tgllahir', jabatan='$jabatan',avatar='$avatar' where userna_me='$username'";

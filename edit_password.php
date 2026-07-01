@@ -77,18 +77,13 @@ if ($search != null || $search != "") {
 
 
     $username=$password=$insert=$no="";
-    $no = $_GET["no"];
+    $no = SecurityBootstrap::paramInt($_GET["no"] ?? 0);
     $insert = '1';
-
-
 
     if(($no != null || $no != "") && ($chmod >= 3 || $_SESSION['jabatan'] == 'admin')){
 
-         $sql="select * from $tabeldatabase where no='$no'";
-                  $hasil2 = mysqli_query($conn,$sql);
-
-
-                  while ($fill = mysqli_fetch_assoc($hasil2)){
+         $editRows = SecurityBootstrap::queryAll($conn, "SELECT * FROM user WHERE no = ?", 'i', [$no]);
+                  foreach ($editRows as $fill) {
 
 
                   $username = $fill["userna_me"];

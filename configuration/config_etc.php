@@ -1,8 +1,9 @@
 <?php 
 error_reporting(0);
-include_once 'config_connect.php';
+include_once __DIR__ . '/config_connect.php';
 date_default_timezone_set("Asia/Jakarta");
 
+global $conn;
 		$baseurl= "indotory";
         $queryback="SELECT * FROM backset";
 		$resultback=mysqli_query($conn,$queryback);

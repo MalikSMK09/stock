@@ -1,0 +1,3 @@
+configuration/.env
+tmp/security/*.json
+tmp/security/*.log

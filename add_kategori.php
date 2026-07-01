@@ -116,18 +116,18 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
     error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
 
     $kode=$nama="";
-    $no = $_GET["no"];
+    $no = SecurityBootstrap::paramInt($_GET["no"] ?? 0);
     $insert = '1';
 
 
 
     if(($no != null || $no != "") && ($chmod >= 3 || $_SESSION['jabatan'] == 'admin')){
 
-         $sql="select * from $tabeldatabase where no='$no'";
-                  $hasil2 = mysqli_query($conn,$sql);
+         $editRows = SecurityBootstrap::queryAll($conn, "SELECT * FROM `$tabeldatabase` WHERE no = ?", 'i', [$no]);
+                  // secured query above
 
 
-                  while ($fill = mysqli_fetch_assoc($hasil2)){
+                  foreach ($editRows as $fill) {
 
 
           $kode = $fill["kode"];

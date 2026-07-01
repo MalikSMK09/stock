@@ -1,27 +1,19 @@
 <?php
 include "configuration/config_connect.php";
+require_once "libs/SecurityBootstrap.php";
 
+SecurityBootstrap::requireAuth();
 
-$q=$_GET['q'];
+$q = SecurityBootstrap::paramStr($_GET['q'] ?? '', 64);
+$rows = SecurityBootstrap::queryAll($conn, "SELECT nota FROM quotation_list WHERE conv = '1' LIMIT 1");
 
-$sql=mysqli_query($conn,"SELECT * FROM quotation_list WHERE conv='1'");
-
-if( mysqli_num_rows($sql)<1){
- echo "<script type='text/javascript'>window.location = 'quotation_conv?q=$q';</script>";
+if (count($rows) < 1) {
+    echo "<script type='text/javascript'>window.location = 'quotation_conv?q=" . htmlspecialchars(urlencode($q), ENT_QUOTES, 'UTF-8') . "';</script>";
 } else {
-
-$result=mysqli_fetch_assoc($sql);
-$nota=$result['nota'];
-
-	if($nota==$q){
-echo "<script type='text/javascript'>window.location = 'quotation_conv?q=$q';</script>";
-	} else {
-
- echo "<script type='text/javascript'>window.location = 'quotation_confirm?q=$nota';</script>";
-
+    $nota = $rows[0]['nota'];
+    if ($nota == $q) {
+        echo "<script type='text/javascript'>window.location = 'quotation_conv?q=" . htmlspecialchars(urlencode($q), ENT_QUOTES, 'UTF-8') . "';</script>";
+    } else {
+        echo "<script type='text/javascript'>window.location = 'quotation_confirm?q=" . htmlspecialchars(urlencode($nota), ENT_QUOTES, 'UTF-8') . "';</script>";
+    }
 }
-
-}
-
-
-?>

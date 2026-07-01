@@ -120,29 +120,20 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 
  if(isset($_GET['filter'])){
 
-     $s=$_GET['sup'];
-            $dr=$_GET['start'];
-            $sam=$_GET['end'];
+     $s = SecurityBootstrap::supplierFilter($_GET['sup'] ?? 'all');
+            $dr = SecurityBootstrap::sanitizeDate($_GET['start'] ?? '');
+            $sam = SecurityBootstrap::sanitizeDate($_GET['end'] ?? '');
 
 if($s !='all'){
-                $sqla="SELECT SUM(hutang) as tbeli FROM buy_hutang WHERE kreditur='$s' AND tgl BETWEEN '" . $dr . "' AND  '" . $sam . "' ";
-                 $sqlc="SELECT SUM(sudahbayar) as tsubayar FROM buy_hutang WHERE kreditur='$s' AND tgl BETWEEN '" . $dr . "' AND  '" . $sam . "' ";
-
- $sqld="SELECT SUM(sudahbayar) as tembayar, SUM(hutang) as tembeli FROM buy_hutang WHERE kreditur='$s' AND status LIKE 'hutang' AND due BETWEEN '" . $dr . "' AND  '" . $sam . "' ";
+                $b = SecurityBootstrap::queryOne($conn, 'SELECT SUM(hutang) AS tbeli FROM buy_hutang WHERE kreditur = ? AND tgl BETWEEN ? AND ?', 'sss', [$s, $dr, $sam]) ?: ['tbeli' => 0];
+                $c = SecurityBootstrap::queryOne($conn, 'SELECT SUM(sudahbayar) AS tsubayar FROM buy_hutang WHERE kreditur = ? AND tgl BETWEEN ? AND ?', 'sss', [$s, $dr, $sam]) ?: ['tsubayar' => 0];
+                $d = SecurityBootstrap::queryOne($conn, "SELECT SUM(sudahbayar) AS tembayar, SUM(hutang) AS tembeli FROM buy_hutang WHERE kreditur = ? AND status LIKE 'hutang' AND due BETWEEN ? AND ?", 'sss', [$s, $dr, $sam]) ?: ['tembayar' => 0, 'tembeli' => 0];
 
             } else {
-                 $sqla="SELECT SUM(hutang) as tbeli FROM buy_hutang WHERE tgl BETWEEN '" . $dr . "' AND  '" . $sam . "' ";
-                 $sqlc="SELECT SUM(sudahbayar) as tsubayar FROM buy_hutang WHERE tgl BETWEEN '" . $dr . "' AND  '" . $sam . "' ";
-
-                 $sqld="SELECT SUM(sudahbayar) as tembayar, SUM(hutang) as tembeli FROM buy_hutang WHERE status LIKE 'hutang' AND due BETWEEN '" . $dr . "' AND  '" . $sam . "' ";
+                $b = SecurityBootstrap::queryOne($conn, 'SELECT SUM(hutang) AS tbeli FROM buy_hutang WHERE tgl BETWEEN ? AND ?', 'ss', [$dr, $sam]) ?: ['tbeli' => 0];
+                $c = SecurityBootstrap::queryOne($conn, 'SELECT SUM(sudahbayar) AS tsubayar FROM buy_hutang WHERE tgl BETWEEN ? AND ?', 'ss', [$dr, $sam]) ?: ['tsubayar' => 0];
+                $d = SecurityBootstrap::queryOne($conn, "SELECT SUM(sudahbayar) AS tembayar, SUM(hutang) AS tembeli FROM buy_hutang WHERE status LIKE 'hutang' AND due BETWEEN ? AND ?", 'ss', [$dr, $sam]) ?: ['tembayar' => 0, 'tembeli' => 0];
             }
-
-$b=mysqli_fetch_assoc(mysqli_query($conn,$sqla));
-
-
-$c=mysqli_fetch_assoc(mysqli_query($conn,$sqlc));
-
-$d=mysqli_fetch_assoc(mysqli_query($conn,$sqld));
 
 
 echo '  <div >
@@ -215,22 +206,21 @@ $sampai=date('d-m-Y', strtotime($sam));
         <?php   if(isset($_GET['filter'])){
 
                       if($s !='all'){
-                $sql="SELECT * FROM buy_hutang WHERE kreditur='$s' AND tgl BETWEEN '" . $dr . "' AND  '" . $sam . "' ";
+                $listRows = SecurityBootstrap::queryAll($conn, 'SELECT * FROM buy_hutang WHERE kreditur = ? AND tgl BETWEEN ? AND ?', 'sss', [$s, $dr, $sam]);
             } else {
-                 $sql="SELECT * FROM buy_hutang WHERE tgl BETWEEN '" . $dr . "' AND  '" . $sam . "' ";
+                $listRows = SecurityBootstrap::queryAll($conn, 'SELECT * FROM buy_hutang WHERE tgl BETWEEN ? AND ?', 'ss', [$dr, $sam]);
             }
-            $qry=mysqli_query($conn,$sql);
-            while($row=mysqli_fetch_assoc($qry)){
+            foreach ($listRows as $row){
                 
         ?>
 
                 <tr>
-                    <td><?php echo $row['nota'];?></td>
-                    <td><?php echo date('d-m-Y',strtotime($row['tgl']));?></td>
-                      <td><?php echo $row['faktur'];?></td>
-                       <td><?php $supe= $row['kreditur'];
-                            $ca=mysqli_fetch_assoc(mysqli_query($conn,"SELECT nama FROM supplier WHERE kode='$supe'"));
-                            echo $ca['nama'];
+                    <td><?php echo htmlspecialchars($row['nota'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td><?php echo date('d-m-Y',strtotime($row['tgl'])); ?></td>
+                      <td><?php echo htmlspecialchars($row['faktur'], ENT_QUOTES, 'UTF-8'); ?></td>
+                       <td><?php
+                            $ca = SecurityBootstrap::queryOne($conn, 'SELECT nama FROM supplier WHERE kode = ? LIMIT 1', 's', [$row['kreditur']]);
+                            echo htmlspecialchars($ca['nama'] ?? '', ENT_QUOTES, 'UTF-8');
                         ?></td>
                        <td><?php echo number_format($row['hutang']-$row['sudahbayar']);?></td>
                          <td><?php echo date('d-m-Y',strtotime($row['due']));?></td>
@@ -299,22 +289,21 @@ $sampai=date('d-m-Y', strtotime($sam));
         <?php   if(isset($_GET['filter'])){
 
                       if($s !='all'){
-                $sql="SELECT * FROM buy_hutang WHERE kreditur='$s' AND due BETWEEN '" . $dr . "' AND  '" . $sam . "' ";
+                $dueRows = SecurityBootstrap::queryAll($conn, 'SELECT * FROM buy_hutang WHERE kreditur = ? AND due BETWEEN ? AND ?', 'sss', [$s, $dr, $sam]);
             } else {
-                 $sql="SELECT * FROM buy_hutang WHERE due BETWEEN '" . $dr . "' AND  '" . $sam . "' ";
+                $dueRows = SecurityBootstrap::queryAll($conn, 'SELECT * FROM buy_hutang WHERE due BETWEEN ? AND ?', 'ss', [$dr, $sam]);
             }
-            $qry=mysqli_query($conn,$sql);
-            while($row=mysqli_fetch_assoc($qry)){
+            foreach ($dueRows as $row){
                 
         ?>
 
                 <tr>
-                    <td><?php echo $row['nota'];?></td>
-                    <td><?php echo date('d-m-Y',strtotime($row['tgl']));?></td>
-                      <td><?php echo $row['faktur'];?></td>
-                       <td><?php $supe= $row['kreditur'];
-                            $ca=mysqli_fetch_assoc(mysqli_query($conn,"SELECT nama FROM supplier WHERE kode='$supe'"));
-                            echo $ca['nama'];
+                    <td><?php echo htmlspecialchars($row['nota'], ENT_QUOTES, 'UTF-8'); ?></td>
+                    <td><?php echo date('d-m-Y',strtotime($row['tgl'])); ?></td>
+                      <td><?php echo htmlspecialchars($row['faktur'], ENT_QUOTES, 'UTF-8'); ?></td>
+                       <td><?php
+                            $ca = SecurityBootstrap::queryOne($conn, 'SELECT nama FROM supplier WHERE kode = ? LIMIT 1', 's', [$row['kreditur']]);
+                            echo htmlspecialchars($ca['nama'] ?? '', ENT_QUOTES, 'UTF-8');
                         ?></td>
                        <td><?php echo number_format($row['hutang']-$row['sudahbayar']);?></td>
                          <td><span class="label label-danger"><?php echo date('d-m-Y',strtotime($row['due']));?></span></td>

@@ -43,7 +43,7 @@ $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
 $search = $_POST['search'];
 $insert = $_POST['insert'];
-$q=$_GET['q'];
+$q = SecurityBootstrap::paramStr($_GET['q'] ?? '', 64);
  
 ?>
 
@@ -107,7 +107,7 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 
            $sql    = "select * from invoicebeli where nota ='$q' order by no";
 
-           $sum=mysqli_fetch_assoc(mysqli_query($conn,"SELECT SUM(hargaakhir) as sub FROM invoicebeli WHERE nota='$q'"));
+           $sum = SecurityBootstrap::queryOne($conn, 'SELECT SUM(hargaakhir) AS sub FROM invoicebeli WHERE nota = ?', 's', [$q]) ?: ['sub' => 0];
            $result = mysqli_query($conn, $sql);
            $rpp    = 15;
            $reload = "$halaman"."?pagination=true";

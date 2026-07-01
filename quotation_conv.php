@@ -41,7 +41,7 @@ $tabeldatabase = "quotation"; // tabel database
 $chmod = $chmenu3; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
-$nota = $_GET['q'];
+$nota = SecurityBootstrap::secureNota($_GET['q'] ?? '');
 
 
 function autoNumber(){

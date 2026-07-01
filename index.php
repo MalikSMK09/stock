@@ -50,13 +50,10 @@ $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
 // hak tampil dashboard
 
 $jabatan = $_SESSION['jabatan'];
-$sqlnya="SELECT * FROM chmenu where userjabatan = '$jabatan'";
-$hasilnya= mysqli_query($conn,$sqlnya);
-  if(mysqli_num_rows($hasilnya)>0){
-    $rownya=mysqli_fetch_assoc($hasilnya);
-    $hak=$rownya['menu1']; //user
-
-  }
+$rownya = SecurityBootstrap::queryOne($conn, 'SELECT menu1 FROM chmenu WHERE userjabatan = ? LIMIT 1', 's', [$jabatan]);
+if ($rownya) {
+    $hak = $rownya['menu1'];
+}
 
 
 ?>

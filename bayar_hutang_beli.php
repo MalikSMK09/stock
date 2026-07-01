@@ -111,17 +111,15 @@ if (isset($_GET['msg'])) {
     <?php
 if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 
-$q=$_GET['q'];
+$q = SecurityBootstrap::secureNota($_GET['q'] ?? '');
 
-$a=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM buy_hutang WHERE nota='$q'"));
+$a = SecurityBootstrap::queryOne($conn, 'SELECT * FROM buy_hutang WHERE nota = ? LIMIT 1', 's', [$q]) ?: [];
+$sisa = ($a['hutang'] ?? 0) - ($a['sudahbayar'] ?? 0);
 
-$sisa=$a['hutang']-$a['sudahbayar'];
+$c = SecurityBootstrap::queryOne($conn, 'SELECT * FROM buy WHERE nota = ? LIMIT 1', 's', [$q]) ?: [];
 
-
-$c=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM buy WHERE nota='$q'"));
-
-$aa=$a['kreditur'];
-$b=mysqli_fetch_assoc(mysqli_query($conn,"SELECT * FROM supplier WHERE kode='$aa'"));
+$aa = $a['kreditur'] ?? '';
+$b = SecurityBootstrap::queryOne($conn, 'SELECT * FROM supplier WHERE kode = ? LIMIT 1', 's', [$aa]) ?: [];
   ?>
 
 

@@ -1,25 +1,26 @@
 <?php
 
 include 'configuration/config_connect.php';
+require_once 'libs/SecurityBootstrap.php';
 
-if(isset($_POST['username'])){
-    $username = $_POST['username'];
+SecurityBootstrap::requireAuth();
+SecurityBootstrap::enforceRateLimit('ajax_username', 30, 60);
 
-    $query = "select count(*) as cntUser from user where userna_me='".$username."'";
-    
-    $result = mysqli_query($conn,$query);
-    $response = "<span style='color: green;'>Tersedia.</span>";
-    if(mysqli_num_rows($result)){
-        $row = mysqli_fetch_array($result);
-    
-        $count = $row['cntUser'];
-        
-        if($count > 0){
-            $response = "<span style='color: red;'>Sudah dipakai.</span>";
-        }
-       
-    }
-    
+if (isset($_POST['username'])) {
+    $username = SecurityBootstrap::sanitizeString($_POST['username'], 64);
+
+    $row = SecurityBootstrap::queryOne(
+        $conn,
+        "SELECT COUNT(*) AS cntUser FROM user WHERE userna_me = ?",
+        's',
+        [$username]
+    );
+
+    $count = (int) ($row['cntUser'] ?? 0);
+    $response = $count > 0
+        ? "<span style='color: red;'>Sudah dipakai.</span>"
+        : "<span style='color: green;'>Tersedia.</span>";
+
     echo $response;
     die;
 }

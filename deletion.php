@@ -41,9 +41,9 @@ $dataapa = "Penghapusan"; // data
 $chmod = 5; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
-$kode = $_GET['k'];
-$tabel = $_GET['f'];
-$next = $_GET['page'];
+$kode = SecurityBootstrap::paramStr($_GET['k'] ?? '', 64);
+$tabel = SecurityBootstrap::whitelistDeletionTable($_GET['f'] ?? 'barang');
+$next = SecurityBootstrap::safeRedirectPage(SecurityBootstrap::paramStr($_GET['page'] ?? 'barang', 64));
 
 
  
@@ -128,8 +128,9 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 
             <div class="box-footer">
                 <form method="post">
+                <?php echo SecurityBootstrap::csrfField(); ?>
 
-                <input type="hidden" name="tabel" value="<?php echo $tabel;?>">
+                <input type="hidden" name="tabel" value="<?php echo htmlspecialchars($tabel, ENT_QUOTES, 'UTF-8');?>">
                  <input type="hidden" name="next" value="<?php echo $next;?>">
                   <input type="hidden" name="kode" value="<?php echo $kode;?>">
 
@@ -173,8 +174,9 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 
             <div class="box-footer">
                 <form method="post">
+                <?php echo SecurityBootstrap::csrfField(); ?>
 
-                <input type="hidden" name="tabel" value="<?php echo $tabel;?>">
+                <input type="hidden" name="tabel" value="<?php echo htmlspecialchars($tabel, ENT_QUOTES, 'UTF-8');?>">
                  <input type="hidden" name="next" value="<?php echo $next;?>">
                   <input type="hidden" name="kode" value="<?php echo $kode;?>">
 
@@ -220,8 +222,9 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 
              <div class="box-footer">
                 <form method="post">
+                <?php echo SecurityBootstrap::csrfField(); ?>
 
-                <input type="hidden" name="tabel" value="<?php echo $tabel;?>">
+                <input type="hidden" name="tabel" value="<?php echo htmlspecialchars($tabel, ENT_QUOTES, 'UTF-8');?>">
                  <input type="hidden" name="next" value="<?php echo $next;?>">
                   <input type="hidden" name="kode" value="<?php echo $kode;?>">
                   
@@ -268,30 +271,30 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 
 if($_SERVER["REQUEST_METHOD"] == "POST"){
 
+SecurityBootstrap::requireCsrf();
 
-$kode = mysqli_real_escape_string($conn, $_POST["kode"]);
-$next = mysqli_real_escape_string($conn, $_POST["next"]);
-$tabel = mysqli_real_escape_string($conn, $_POST["tabel"]);
+$kode = SecurityBootstrap::paramStr($_POST["kode"] ?? '', 64);
+$next = SecurityBootstrap::safeRedirectPage(SecurityBootstrap::paramStr($_POST["next"] ?? 'barang', 64));
+$tabel = SecurityBootstrap::whitelistDeletionTable($_POST["tabel"] ?? '');
 
 //hapus barang
 if(isset($_POST['produk'])){
 
-$cek1=mysqli_num_rows(mysqli_query($conn,"SELECT * FROM invoicebeli WHERE kode='$kode'"));
-$cek2=mysqli_num_rows(mysqli_query($conn,"SELECT * FROM invoicejual WHERE kode='$kode'"));
-$cek3=mysqli_num_rows(mysqli_query($conn,"SELECT * FROM transaksimasuk WHERE kode='$kode'"));
-$cek=$cek1+$cek2+$cek3;
+$cek1 = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(*) AS cnt FROM invoicebeli WHERE kode = ?', 's', [$kode]);
+$cek2 = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(*) AS cnt FROM invoicejual WHERE kode = ?', 's', [$kode]);
+$cek3 = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(*) AS cnt FROM transaksimasuk WHERE kode = ?', 's', [$kode]);
+$cek = (int)($cek1['cnt'] ?? 0) + (int)($cek2['cnt'] ?? 0) + (int)($cek3['cnt'] ?? 0);
 
 if($cek>0){
      echo "<script type='text/javascript'>  alert('Gagal, barang tidak bisa dihapus ketika masih ada transaksi penjualan/pembelian terkait barang ini. Silahkan hapus dulu transaksi tersebut'); </script>";
 } else {
 
-$a=mysqli_query($conn,"DELETE FROM stok_keluar_daftar WHERE kode_barang='$kode'");
-$b=mysqli_query($conn,"DELETE FROM stok_masuk_daftar WHERE kode_barang='$kode'");
-$c=mysqli_query($conn,"DELETE FROM stok_sesuai_daftar WHERE kode_barang='$kode'");
+SecurityBootstrap::execute($conn, 'DELETE FROM stok_keluar_daftar WHERE kode_barang = ?', 's', [$kode]);
+SecurityBootstrap::execute($conn, 'DELETE FROM stok_masuk_daftar WHERE kode_barang = ?', 's', [$kode]);
+SecurityBootstrap::execute($conn, 'DELETE FROM stok_sesuai_daftar WHERE kode_barang = ?', 's', [$kode]);
+SecurityBootstrap::deleteWhere($conn, $tabel, 'kode', $kode, 's');
 
-$e=mysqli_query($conn,"DELETE FROM $tabel WHERE kode='$kode'");
-
- echo "<script type='text/javascript'>window.location = '$next?delete=1';</script>";
+ echo "<script type='text/javascript'>window.location = '" . htmlspecialchars($next, ENT_QUOTES, 'UTF-8') . "?delete=1';</script>";
 
 }
 
@@ -301,27 +304,25 @@ $e=mysqli_query($conn,"DELETE FROM $tabel WHERE kode='$kode'");
 //hapus supplier
 if(isset($_POST['vendor'])){
 
-$a=mysqli_query($conn,"DELETE buy,invoicebeli FROM buy INNER JOIN invoicebeli ON invoicebeli.nota=buy.nota WHERE buy.supplier='$kode'");
-$b=mysqli_query($conn,"DELETE FROM buy_hutang WHERE kreditur='$kode'");
-$c=mysqli_query($conn,"DELETE FROM buy_payment WHERE kreditur='$kode'");
-$e=mysqli_query($conn,"DELETE FROM $tabel WHERE kode='$kode'");
+SecurityBootstrap::execute($conn, 'DELETE buy, invoicebeli FROM buy INNER JOIN invoicebeli ON invoicebeli.nota = buy.nota WHERE buy.supplier = ?', 's', [$kode]);
+SecurityBootstrap::execute($conn, 'DELETE FROM buy_hutang WHERE kreditur = ?', 's', [$kode]);
+SecurityBootstrap::execute($conn, 'DELETE FROM buy_payment WHERE kreditur = ?', 's', [$kode]);
+SecurityBootstrap::deleteWhere($conn, $tabel, 'kode', $kode, 's');
 
- echo "<script type='text/javascript'>window.location = '$next?delete=1';</script>";
+ echo "<script type='text/javascript'>window.location = '" . htmlspecialchars($next, ENT_QUOTES, 'UTF-8') . "?delete=1';</script>";
 
 }
 
 
-//hapus barang
+//hapus pelanggan
 if(isset($_POST['customer'])){
 
-$a=mysqli_query($conn,"DELETE FROM sale WHERE pelanggan='$kode'");
-$b=mysqli_query($conn,"DELETE FROM sale_payment WHERE pelanggan='$kode'");
+SecurityBootstrap::execute($conn, 'DELETE FROM sale WHERE pelanggan = ?', 's', [$kode]);
+SecurityBootstrap::execute($conn, 'DELETE FROM sale_payment WHERE pelanggan = ?', 's', [$kode]);
+SecurityBootstrap::execute($conn, 'DELETE FROM surat WHERE kode_pelanggan = ?', 's', [$kode]);
+SecurityBootstrap::deleteWhere($conn, $tabel, 'kode', $kode, 's');
 
-$c=mysqli_query($conn,"DELETE FROM surat WHERE kode_pelanggan='$kode'");
-
-$e=mysqli_query($conn,"DELETE FROM $tabel WHERE kode='$kode'");
-
- echo "<script type='text/javascript'>window.location = '$next?delete=1';</script>";
+ echo "<script type='text/javascript'>window.location = '" . htmlspecialchars($next, ENT_QUOTES, 'UTF-8') . "?delete=1';</script>";
 
 }
 

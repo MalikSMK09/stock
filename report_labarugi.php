@@ -119,6 +119,7 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 <div class="row" >
 
   <form method="POST" action="">
+  <?php echo SecurityBootstrap::csrfField(); ?>
 
                       <div class="col-sm-3">
                      <input type="text" class="form-control" id="datepicker" name="dari" autocomplete="off" placeholder="dari Tanggal" >
@@ -168,56 +169,39 @@ if ($chmod >= 2 || $_SESSION['jabatan'] == 'admin') {
 
 if(isset($_POST["rekap"])){
        if($_SERVER["REQUEST_METHOD"] == "POST"){
+       SecurityBootstrap::requireCsrf();
 
-$dari = mysqli_real_escape_string($conn, $_POST["dari"]);
-$sampai = mysqli_real_escape_string($conn, $_POST["sampai"]);
+$dari = SecurityBootstrap::sanitizeDate($_POST["dari"] ?? '');
+$sampai = SecurityBootstrap::sanitizeDate($_POST["sampai"] ?? '');
 
-$sqlx="SELECT SUM(total) AS retail, SUM(pajak) as tax1 FROM bayar WHERE keterangan !='Retur' AND tglbayar BETWEEN '" . $dari . "' AND  '" . $sampai . "' ";
-$hasilx=mysqli_query($conn,$sqlx);
-$row=mysqli_fetch_assoc($hasilx);
-$retail=$row['retail'];
-$tax1=$row['tax1'];
+$row = SecurityBootstrap::queryOne($conn, "SELECT SUM(total) AS retail, SUM(pajak) AS tax1 FROM bayar WHERE keterangan != 'Retur' AND tglbayar BETWEEN ? AND ?", 'ss', [$dari, $sampai]) ?: [];
+$retail = $row['retail'] ?? 0;
+$tax1 = $row['tax1'] ?? 0;
 
+$row = SecurityBootstrap::queryOne($conn, 'SELECT SUM(total) AS sales, SUM(pajak) AS tax2 FROM sale WHERE tglsale BETWEEN ? AND ?', 'ss', [$dari, $sampai]) ?: [];
+$totalsales = $row['sales'] ?? 0;
+$tax2 = $row['tax2'] ?? 0;
 
+$pemasukan = $retail + $totalsales - $tax1 - $tax2;
 
+$row = SecurityBootstrap::queryOne($conn, "SELECT SUM(keluar) AS retailcost FROM bayar WHERE keterangan != 'Retur' AND tglbayar BETWEEN ? AND ?", 'ss', [$dari, $sampai]) ?: [];
+$retailcost = $row['retailcost'] ?? 0;
 
-$sqlx1="SELECT SUM(total) AS sales,SUM(pajak) as tax2 FROM sale WHERE tglsale BETWEEN '" . $dari . "' AND  '" . $sampai . "' ";
-$hasilx1=mysqli_query($conn,$sqlx1);
-$row=mysqli_fetch_assoc($hasilx1);
-$totalsales=$row['sales'];
-$tax2=$row['tax2'];
+$row = SecurityBootstrap::queryOne($conn, 'SELECT SUM(modalbeli) AS salescost FROM sale WHERE tglsale BETWEEN ? AND ?', 'ss', [$dari, $sampai]) ?: [];
+$salescost = $row['salescost'] ?? 0;
 
-$pemasukan= $retail + $totalsales + 0 - $tax1 - $tax2;
+$biaya = $retailcost + $salescost;
 
-$sqlx="SELECT SUM(keluar) AS retailcost FROM bayar WHERE keterangan !='Retur' AND tglbayar BETWEEN '" . $dari . "' AND  '" . $sampai . "' ";
-$hasilx=mysqli_query($conn,$sqlx);
-$row=mysqli_fetch_assoc($hasilx);
-$retailcost=$row['retailcost'];
+$row = SecurityBootstrap::queryOne($conn, 'SELECT SUM(biaya) AS cost FROM operasional WHERE tanggal BETWEEN ? AND ?', 'ss', [$dari, $sampai]) ?: [];
+$cost = ($row['cost'] ?? 0) + 0;
 
-$sqlx="SELECT SUM(modalbeli) AS salescost FROM sale WHERE tglsale BETWEEN '" . $dari . "' AND  '" . $sampai . "' ";
-$hasilx=mysqli_query($conn,$sqlx);
-$row=mysqli_fetch_assoc($hasilx);
-$salescost=$row['salescost'];
+$net = $retail + $totalsales - $biaya - $tax1 - $tax2 - $cost;
+$gross1 = $retail + $totalsales - $biaya - $tax1 - $tax2;
 
-$biaya = $retailcost + $salescost + 0;
+$prctg1 = $pemasukan > 0 ? round((($gross1 / $pemasukan) * 100), 2) : 0;
+$prctg2 = $pemasukan > 0 ? round((($net / $pemasukan) * 100), 2) : 0;
 
-
-$sqlx="SELECT SUM(biaya) AS cost FROM operasional WHERE tanggal BETWEEN '" . $dari . "' AND  '" . $sampai . "' ";
-$hasilx=mysqli_query($conn,$sqlx);
-$row=mysqli_fetch_assoc($hasilx);
-$cost=$row['cost'] + 0;
-
-
-
-
-$net = $retail + $totalsales - $biaya - $tax1 - $tax2 -$cost;
-$gross1= $retail + $totalsales - $biaya - $tax1 - $tax2;
-
-
-$prctg1 = round((($gross1/$pemasukan)*100),2);
-$prctg2 = round((($net/$pemasukan)*100),2);
-
- $operasional       = mysqli_query($conn, "SELECT tipe,SUM(biaya) as cost FROM operasional WHERE tanggal BETWEEN '" . $dari . "' AND  '" . $sampai . "' GROUP BY tipe order by no asc"); 
+ $operasionalRows = SecurityBootstrap::queryAll($conn, 'SELECT tipe, SUM(biaya) AS cost FROM operasional WHERE tanggal BETWEEN ? AND ? GROUP BY tipe ORDER BY no ASC', 'ss', [$dari, $sampai]);
 
 
 
@@ -423,7 +407,7 @@ $newsampai = date("d-m-Y", strtotime($sampai));
 <?php 
   
   $no = 1;
-  while ($fill = mysqli_fetch_array($operasional)){
+  foreach ($operasionalRows as $fill){
 ?>
 
                 <tr>

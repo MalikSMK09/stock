@@ -38,8 +38,8 @@ $chmod = $chmenu9; // Hak akses Menu
 $forward = mysqli_real_escape_string($conn, $tabeldatabase); // tabel database
 $forwardpage = mysqli_real_escape_string($conn, $halaman); // halaman
 
-$bulan = $_POST['bulan'];
-$tahun = $_POST['tahun'];
+$bulan = SecurityBootstrap::sanitizeMonth($_POST['bulan'] ?? date('m'));
+$tahun = SecurityBootstrap::sanitizeYear($_POST['tahun'] ?? date('Y'));
 
 ?>
 
@@ -167,15 +167,21 @@ function printDiv(elementId) {
   if($_SERVER["REQUEST_METHOD"] == "GET"){
 
 
-$dr = $_GET['dari'];
-$sam = $_GET['sampai'];
+$dr = SecurityBootstrap::optionalDate($_GET['dari'] ?? '');
+$sam = SecurityBootstrap::sanitizeDate($_GET['sampai'] ?? date('Y-m-d'));
 
-      
-$caba       = mysqli_query($conn, "SELECT * FROM sale INNER JOIN pelanggan WHERE pelanggan.kode=sale.pelanggan order by sale.total");
-
-
-
-$biaya       = mysqli_query($conn, "SELECT pelanggan,SUM(total) as cost FROM sale WHERE tglsale BETWEEN '" . $dr . "' AND  '" . $sam . "' GROUP BY pelanggan ORDER BY cost");  
+$chartRows = SecurityBootstrap::queryAll(
+    $conn,
+    'SELECT pelanggan, SUM(total) AS cost FROM sale WHERE tglsale BETWEEN ? AND ? GROUP BY pelanggan ORDER BY cost ASC',
+    'ss',
+    [$dr !== '' ? $dr : '1970-01-01', $sam]
+);
+$chartLabels = [];
+$chartCosts = [];
+foreach ($chartRows as $b) {
+    $chartLabels[] = SecurityBootstrap::pelangganName($conn, $b['pelanggan']);
+    $chartCosts[] = $b['cost'];
+}
 
 
 
@@ -233,12 +239,12 @@ if($dr!=''){
           data : {
         // label nama setiap Value
         
-         labels: [<?php while ($b = mysqli_fetch_array($caba)) { echo '"' . $b['nama'] . '",';}?>],
+         labels: <?php echo json_encode($chartLabels); ?>,
 
         datasets: [{
           // Jumlah Value yang ditampilkan
             label: '# dalam rupiah',
-           data: [<?php while ($b = mysqli_fetch_array($biaya)) { echo '"' . $b['cost'] . '",';}?>],
+           data: <?php echo json_encode($chartCosts); ?>,
  
                    borderWidth: 1
         }],
@@ -266,27 +272,22 @@ if($dr!=''){
 <?php  
 
 
-$sql = "SELECT pelanggan,SUM(total) as cost FROM sale WHERE tglsale BETWEEN '" . $dr . "' AND  '" . $sam . "' GROUP BY pelanggan order by cost asc";
-$hasil = mysqli_query($conn,$sql);
+$listRows = SecurityBootstrap::queryAll(
+    $conn,
+    'SELECT pelanggan, SUM(total) AS cost FROM sale WHERE tglsale BETWEEN ? AND ? GROUP BY pelanggan ORDER BY cost ASC',
+    'ss',
+    [$dr !== '' ? $dr : '1970-01-01', $sam]
+);
 
 $no_urut=0;
-while ($fill = mysqli_fetch_assoc($hasil)){ 
-$bb=$fill['pelanggan'];
-$bn=mysqli_fetch_assoc(mysqli_query($conn,"select nama from pelanggan where kode='$bb'"));
-
-    ?>
-
+foreach ($listRows as $fill) {
+    $bn = SecurityBootstrap::pelangganName($conn, $fill['pelanggan']);
+?>
                 <tr>
                   <td><?php echo ++$no_urut;?></td>
-                  <td><?php  echo mysqli_real_escape_string($conn, $bn['nama']); ?></td>
-                  <td>Rp 
-                   <?php  echo mysqli_real_escape_string($conn, number_format($fill['cost'])); ?>
-                    </div>
-                  </td>
-                  
-                  
+                  <td><?php echo htmlspecialchars($bn, ENT_QUOTES, 'UTF-8'); ?></td>
+                  <td>Rp <?php echo number_format((float) $fill['cost']); ?></td>
                 </tr>
-
 <?php } ?>
 
 
@@ -353,15 +354,18 @@ if ($chmod >= 1 || $_SESSION['jabatan'] == 'admin') {
 ?>
 
 <?php
-if($bulan == null || $search == "" ){
-        $sqla="SELECT no, COUNT( * ) AS totaldata FROM $forward";
-      }else{
-
-        $sqla="SELECT no, COUNT( * ) AS totaldata FROM $forward where LEFT(tglsale,4) like '%$tahun%' AND MID(tglsale,6,2) like '%$bulan%' or kasir like '%$search%'";
-      }
-    $hasila=mysqli_query($conn,$sqla);
-    $rowa=mysqli_fetch_assoc($hasila);
-    $totaldata=$rowa['totaldata'];
+$search = SecurityBootstrap::secureSearch($_POST['search'] ?? '');
+if ($bulan === null || $bulan === '') {
+    $rowa = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(*) AS totaldata FROM sale');
+} else {
+    $rowa = SecurityBootstrap::queryOne(
+        $conn,
+        'SELECT COUNT(*) AS totaldata FROM sale WHERE (YEAR(tglsale) = ? AND MONTH(tglsale) = ?) OR kasir LIKE ?',
+        'iis',
+        [$tahun, (int) $bulan, '%' . SecurityBootstrap::escapeLike($search) . '%']
+    );
+}
+$totaldata = (int) ($rowa['totaldata'] ?? 0);
 
 ?>
 
@@ -399,23 +403,29 @@ if($bulan == null || $search == "" ){
                                   <!-- /.Paginasi -->
                                  <?php
     error_reporting(E_ALL ^ E_DEPRECATED);
-    if(isset($sam)){
-         $sql = "select * from $forward WHERE tglsale BETWEEN '" . $dr . "' AND  '" . $sam . "' order by no desc";  
-    } else{
-         $sql    = "select * from $forward order by no desc";
-  } 
-    $result = mysqli_query($conn, $sql);
     $rpp    = 15;
     $reload = "$halaman"."?pagination=true";
     $page   = intval(isset($_GET["page"]) ? $_GET["page"] : 0);
 
-    if ($page <= 0)
+    if ($page <= 0) {
         $page = 1;
-    $tcount  = mysqli_num_rows($result);
-    $tpages  = ($tcount) ? ceil($tcount / $rpp) : 1;
-    $count   = 0;
-    $i       = ($page - 1) * $rpp;
-    $no_urut = ($page - 1) * $rpp;
+    }
+    $offset = ($page - 1) * $rpp;
+    $no_urut = $offset;
+
+    if (isset($sam) && $sam !== '' && isset($dr)) {
+        $countRow = SecurityBootstrap::queryOne(
+            $conn,
+            'SELECT COUNT(*) AS cnt FROM sale WHERE tglsale BETWEEN ? AND ?',
+            'ss',
+            [$dr !== '' ? $dr : '1970-01-01', $sam]
+        );
+        $tcount = (int) ($countRow['cnt'] ?? 0);
+    } else {
+        $countRow = SecurityBootstrap::queryOne($conn, 'SELECT COUNT(*) AS cnt FROM sale');
+        $tcount = (int) ($countRow['cnt'] ?? 0);
+    }
+    $tpages = ($tcount) ? (int) ceil($tcount / $rpp) : 1;
 ?>
                             <div class="box-body table-responsive">
                                     <table class="table table-hover ">
@@ -434,87 +444,69 @@ if($bulan == null || $search == "" ){
                                         </thead>
                                           <?php
     error_reporting(E_ALL ^ (E_NOTICE | E_WARNING));
-    $search = $_POST['search'];
 
-    if ($bulan != null || $bulan != "") {
-
-        if ($_SERVER["REQUEST_METHOD"] == "POST") {
-
-              if(isset($_POST['bulan'])){
-        $query1="SELECT * FROM  $forward  where YEAR(tglsale) like '%$tahun%' AND MONTH(tglsale) like '%$bulan%' AND status like '%dibayar%' order by no limit $rpp";
-        $hasil = mysqli_query($conn,$query1);
-        $no = 1;
-        while ($fill = mysqli_fetch_assoc($hasil)){
-          ?>
+    if ($bulan !== null && $bulan !== '') {
+        if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['bulan'])) {
+            $monthRows = SecurityBootstrap::queryAll(
+                $conn,
+                "SELECT * FROM sale WHERE YEAR(tglsale) = ? AND MONTH(tglsale) = ? AND status LIKE '%dibayar%' ORDER BY no LIMIT ?",
+                'iii',
+                [$tahun, (int) $bulan, $rpp]
+            );
+            ?>
                      <tbody>
+<?php foreach ($monthRows as $fill) {
+    $pembeli = SecurityBootstrap::pelangganName($conn, $fill['pelanggan']);
+?>
 <tr>
   <td><?php echo ++$no_urut;?></td>
-  <td><?php  echo mysqli_real_escape_string($conn, $fill['nota']); ?></td>
-  <td><?php  echo mysqli_real_escape_string($conn, $fill['tglsale']); ?></td>
-  <?php
-$cust = $fill['pelanggan'];
-$sqle="SELECT nama FROM pelanggan WHERE kode ='$cust'";
-$hasile=mysqli_query($conn,$sqle);
-$rowa=mysqli_fetch_assoc($hasile);
-$pembeli=$rowa['nama'];
-
-$jml= " SELECT SUM(jumlah) tot_jual FROM transaksimasuk WHERE nota ='$nota'"  ;
-$hasil1=mysqli_query($conn,$jml);
-$row1=mysqli_fetch_array($hasil1);
-$jmljual=$row1['tot_jual'];
-   ?>
-   <td><?php  echo mysqli_real_escape_string($conn, number_format($fill['total'])); ?></td>
-  <td><?php  echo mysqli_real_escape_string($conn, $fill['diskon']); ?></td>
-  <td><?php  echo mysqli_real_escape_string($conn, $pembeli); ?></td>
-  <td><?php  echo mysqli_real_escape_string($conn, $fill['status']); ?></td>
-  <td><?php  echo mysqli_real_escape_string($conn, $fill['kasir']); ?></td>
-  </tr><?php
-          ;
-        }
-
-        ?>
+  <td><?php echo htmlspecialchars($fill['nota'], ENT_QUOTES, 'UTF-8'); ?></td>
+  <td><?php echo htmlspecialchars($fill['tglsale'], ENT_QUOTES, 'UTF-8'); ?></td>
+  <td><?php echo number_format((float) $fill['total']); ?></td>
+  <td><?php echo htmlspecialchars((string) $fill['diskon'], ENT_QUOTES, 'UTF-8'); ?></td>
+  <td><?php echo htmlspecialchars($pembeli, ENT_QUOTES, 'UTF-8'); ?></td>
+  <td><?php echo htmlspecialchars($fill['status'], ENT_QUOTES, 'UTF-8'); ?></td>
+  <td><?php echo htmlspecialchars($fill['kasir'], ENT_QUOTES, 'UTF-8'); ?></td>
+</tr>
+<?php } ?>
                   </tbody></table>
- <div align="right"><?php if($tcount>=$rpp){ echo paginate_one($reload, $page, $tpages);}else{} ?></div>
+ <div align="right"><?php if ($tcount >= $rpp) { echo paginate_one($reload, $page, $tpages); } ?></div>
      <?php
-      }
-
-    }
-
-  } else {
-    while(($count<$rpp) && ($i<$tcount)) {
-      mysqli_data_seek($result,$i);
-      $fill = mysqli_fetch_array($result);
-      ?>
+        }
+    } else {
+        if (isset($sam) && $sam !== '' && isset($dr)) {
+            $listRows = SecurityBootstrap::queryAll(
+                $conn,
+                'SELECT * FROM sale WHERE tglsale BETWEEN ? AND ? ORDER BY no DESC LIMIT ?, ?',
+                'ssii',
+                [$dr !== '' ? $dr : '1970-01-01', $sam, $offset, $rpp]
+            );
+        } else {
+            $listRows = SecurityBootstrap::queryAll(
+                $conn,
+                'SELECT * FROM sale ORDER BY no DESC LIMIT ?, ?',
+                'ii',
+                [$offset, $rpp]
+            );
+        }
+        ?>
                       <tbody>
+<?php foreach ($listRows as $fill) {
+    $pembeli = SecurityBootstrap::pelangganName($conn, $fill['pelanggan']);
+?>
 <tr>
   <td><?php echo ++$no_urut;?></td>
-  <td><?php  echo mysqli_real_escape_string($conn, $fill['nota']); ?></td>
-  <td><?php  echo mysqli_real_escape_string($conn, $fill['tglsale']); ?></td>
-  <?php
-$cust = $fill['pelanggan'];
-$sqle="SELECT nama FROM pelanggan WHERE kode ='$cust'";
-$hasile=mysqli_query($conn,$sqle);
-$rowa=mysqli_fetch_assoc($hasile);
-$pembeli=$rowa['nama'];
-
-   ?>
-   
-  
- 
-  <td><?php  echo mysqli_real_escape_string($conn, number_format($fill['pajak'])); ?></td>
-   <td><?php  echo mysqli_real_escape_string($conn, number_format($fill['total'])); ?></td>
-  <td><?php  echo mysqli_real_escape_string($conn, $pembeli); ?></td>
-  <td><?php  echo mysqli_real_escape_string($conn, $fill['status']); ?></td>
-  <td><?php  echo mysqli_real_escape_string($conn, $fill['kasir']); ?></td>
- </tr>
-      <?php
-      $i++;
-      $count++;
-    }
-
-    ?>
+  <td><?php echo htmlspecialchars($fill['nota'], ENT_QUOTES, 'UTF-8'); ?></td>
+  <td><?php echo htmlspecialchars($fill['tglsale'], ENT_QUOTES, 'UTF-8'); ?></td>
+  <td><?php echo number_format((float) $fill['pajak']); ?></td>
+  <td><?php echo number_format((float) $fill['total']); ?></td>
+  <td><?php echo htmlspecialchars($pembeli, ENT_QUOTES, 'UTF-8'); ?></td>
+  <td><?php echo htmlspecialchars($fill['status'], ENT_QUOTES, 'UTF-8'); ?></td>
+  <td><?php echo htmlspecialchars($fill['kasir'], ENT_QUOTES, 'UTF-8'); ?></td>
+</tr>
+<?php } ?>
                   </tbody></table>
-          <div align="right"><?php if($tcount>=$rpp){ echo paginate_one($reload, $page, $tpages);}else{} ?></div>
+          <div align="right"><?php if ($tcount >= $rpp) { echo paginate_one($reload, $page, $tpages); } ?></div>
   <?php } ?>
 
                                </div>

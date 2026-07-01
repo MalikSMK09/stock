@@ -51,13 +51,10 @@ if ($_SESSION['jabatan'] == 'admin') {
 
                    <?php
 
-$no=$_GET['no'];
+$no = SecurityBootstrap::paramStr($_GET['no'] ?? '', 64);
 
- $sql="select * from chmenu where userjabatan = '$no'";
-                  $hasil2 = mysqli_query($conn,$sql);
-
-
-                  while ($fill = mysqli_fetch_assoc($hasil2)){
+ $editRows = SecurityBootstrap::queryAll($conn, 'SELECT * FROM chmenu WHERE userjabatan = ?', 's', [$no]);
+                  foreach ($editRows as $fill) {
 
   $userjabatan = $fill['userjabatan'];
   $menu1 = $fill['menu1'];

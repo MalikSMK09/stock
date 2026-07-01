@@ -1,12 +1,10 @@
 <?php 
 include "configuration/config_connect.php";
-$nouser= $_SESSION['nouser'];
-$user= "SELECT * FROM user WHERE no='$nouser' ";
-$query = mysqli_query($conn, $user);
-$row  = mysqli_fetch_assoc($query);
-$nama = $row['nama'];
-$jabatan = $row['jabatan'];
-$avatar = $row['avatar'];
+$nouser = SecurityBootstrap::paramInt($_SESSION['nouser'] ?? 0);
+$row = SecurityBootstrap::queryOne($conn, 'SELECT nama, jabatan, avatar FROM user WHERE no = ? LIMIT 1', 'i', [$nouser]);
+$nama = $row['nama'] ?? '';
+$jabatan = $row['jabatan'] ?? '';
+$avatar = $row['avatar'] ?? '';
 
 
 $queryback="SELECT * FROM backset";
